@@ -4,7 +4,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def detect_peak_3d(signal, px, minmax, t0, lag, rel_idx=True):
+def detect_peak_3d(signal, px, minmax, t0, lag, rel_idx=False):
 
     """
     Given a timeseries of 2d surfaces, identify peaks within a specified intervall that occur
@@ -32,8 +32,8 @@ def detect_peak_3d(signal, px, minmax, t0, lag, rel_idx=True):
     # 1.) Peaks with lower amplitude that fall in the deadtime intervall after a peak was detected
 
     # Return value from np.argwhere are indices from tseries[lag:-lag]. 
-    peak_idx_list = np.squeeze( np.argwhere( (tseries > minmax[0]) & (tseries <  minmax[1]) ) )
-
+    peak_idx_list = np.squeeze( np.argwhere( tseries > minmax[0] ) )
+    
     # Create a structured array to sort the tuples (Amplitude(t_i, z_i, R_i), t_i, z_i, R_i 
     # by amplitude.
     pl = [(tseries[peak_idx[0], peak_idx[1], peak_idx[2]], peak_idx[0], peak_idx[1], peak_idx[2]) for peak_idx in peak_idx_list]
@@ -41,30 +41,32 @@ def detect_peak_3d(signal, px, minmax, t0, lag, rel_idx=True):
     dtype = [('value', 'f4'), ('tidx', 'i4'), ('zidx', 'i4'), ('ridx', 'i4')]
     peak_list = np.array(pl, dtype=dtype)
     # Sort the peaks by amplitude, largest first
-    np.sort(peak_list, order='value')
-    peak_list = peak_list[::-1]
-
+    peak_list = np.sort(peak_list, order='value')[::-1]
+    
     
 # Debug, show the found peaks
-    print '%d peaks, sorted after amplitude:' % ( np.shape(peak_list)[0] )
-    for p in peak_list:
-        print p
+#    print '%d peaks, sorted after amplitude:' % ( np.shape(peak_list)[0] )
+#    for p in peak_list:
+#        print p
     
     # We now have the sorted amplitudes of all detected peaks in the trigger box.
     # Iterate over peaks sorted by magnitude, blank out those within the deadtime window
     # of a previous peak
-    print peak_list['tidx'][:]
+    print 'np.shape(peak_list)', np.shape(peak_list)
     for idx, peak in enumerate(peak_list):
+
         if ( peak['value'] == -1.0 ):   # Peak was blanked out, go to next one
             continue
-        # Mark all indices within the specified lag to be blanked out
-        blank_indices = np.argwhere(peak_list['tidx'][np.abs(peak_list['tidx'] - peak['tidx']) < lag])
-#  Debug, write out which indices to blank
-#        print 'tidx %d, peaks within lag:' % peak['tidx'] + ', ', peak_list['tidx'][blank_indices+idx]
+        # Mark all indices within the specified lag to be blanked out and ignore the current index
+        blank_indices = np.abs( peak_list['tidx'] - peak['tidx'] ) < lag
+        blank_indices[idx] = False
 
         # Ignore the peak with index zero, as this is the current peak. Also, add the relative
         # array index idx to the peak indices that need to be blanked out
-        peak_list['value'][blank_indices[blank_indices > 0]+idx] = -1.0
+        peak_list['value'][blank_indices] = -1.0
+        if ( rel_idx == False ):
+            peak['ridx'] = peak['ridx'] + px[0]
+            peak['zidx'] = peak['zidx'] + px[2]
 
 # Debug, plot what we have found
 #    for peak in peak_list:
@@ -76,9 +78,7 @@ def detect_peak_3d(signal, px, minmax, t0, lag, rel_idx=True):
 #            plt.colorbar()
     
     # Return only peaks that have not been blanked out
-    return peak_list[peak_list['value'] > 0.0]
-    
-    
+    return ( peak_list[peak_list['value'] > 0.0] )
 
     
 def detect_peak_2d(signal, px, minmax, t0, lag, rel_idx=True):

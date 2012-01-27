@@ -4,7 +4,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from gaussfitter import gf
+import gaussfitter as gf
 
 from cond_avg_2d import cond_avg_top_peak_surface
 
