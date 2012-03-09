@@ -19,7 +19,6 @@ Taken from http://www.scipy.org/Cookbook/SignalSmooth
 import numpy as np
 
 
-
 def smooth( x, window_len = 5, window = 'hanning' ):
     """smooth the data using a window with requested size.
     
@@ -66,14 +65,14 @@ def smooth( x, window_len = 5, window = 'hanning' ):
         raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
 
 
-    s=numpy.r_[x[window_len-1:0:-1],x,x[-1:-window_len:-1]]
+    s=np.r_[x[window_len-1:0:-1],x,x[-1:-window_len:-1]]
 
     if window == 'flat': #moving average
-        w=numpy.ones(window_len,'d')
+        w=np.ones(window_len,'d')
     else:
-        w=eval('numpy.'+window+'(window_len)')
+        w=eval('np.'+window+'(window_len)')
 
-    y=numpy.convolve(w/w.sum(),s,mode='valid')
+    y=np.convolve(w/w.sum(),s,mode='valid')
     return y
 
 
