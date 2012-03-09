@@ -52,7 +52,7 @@ def detect_peak_3d(signal, px, minmax, t0, lag, rel_idx=False):
     # We now have the sorted amplitudes of all detected peaks in the trigger box.
     # Iterate over peaks sorted by magnitude, blank out those within the deadtime window
     # of a previous peak
-    print 'np.shape(peak_list)', np.shape(peak_list)
+
     for idx, peak in enumerate(peak_list):
 
         if ( peak['value'] == -1.0 ):   # Peak was blanked out, go to next one

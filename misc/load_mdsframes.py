@@ -11,12 +11,13 @@ def load_mdsframes(shotnr, test = False):
 
     if ( test == False ):
         # Open file in copy-on-write mode
+        print 'Loading frames from %d/%d_frames.npz' % (shotnr, shotnr)
         datafile = np.load('%d/%d_frames.npz' % (shotnr, shotnr), mmap_mode = 'c')
         frames = datafile['frames_normalized_mean']
         print 'Loaded frames for shot %d' % shotnr
     else:
-        print 'Could not open file %d/%d_frames.npz' % (shotnr, shotnr)
-        datafile = np.load('../../blob_tracking/%d/%d_testframes.npz' % (shotnr, shotnr) )
+        print 'Loading frames from %d/%d_testframes.npz' % (shotnr, shotnr)
+        datafile = np.load('%d/%d_testframes.npz' % (shotnr, shotnr) )
         frames = datafile['frames']
 
     frame_info = datafile['frame_info']
@@ -24,4 +25,4 @@ def load_mdsframes(shotnr, test = False):
     # Make frames read-only
     frames.flags.writeable = True
 
-    return frames, frame_info, datafile['frames_mean'], datafile['frames_rms']
+    return frames, frame_info #, datafile['frames_mean'], datafile['frames_rms']

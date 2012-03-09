@@ -246,41 +246,42 @@ def tracker(frames, event, thresh_amp, thresh_dis, fwhm_max_idx, blob_ext, direc
     return tau, amp, xycom, xymax, fwhm_rad_idx, fwhm_pol_idx, blob
 
 
-def find_sol_pixels(shotnr, frames, frame_info = None, rz_array = None):
+def find_sol_pixels(shotnr, frame_info = None, rz_array = None):
     """
-    Returns the indices of the pixels in between the separatrix and the LCFS.
-    
-    Define a rectangular grid on which the GPI data will be interpolated.
-    Then choose all the pixels of this grid, which are in between the separatrix and LCFS. 
-    Return the indices of these pixels
+    Returns the indices of the pixels in between the separatrix and the LCFS.    
     """
     
     s = idlsave.read('test_data/separatrix.sav', verbose = False)
+    
+    gap_idx_mask = (s['rmid'].reshape(64,64) > s['rmid_sepx']) & (s['rmid'].reshape(64,64) < s['rmid_lim'])
                 
-    if ( rz_array == None ):
-        rz_array, transform_data = make_rz_array( frame_info )
+    return np.argwhere(gap_idx_mask)
     
-    # Define a rectangular grid and on which we interpolate the GPI data
-    xxi, yyi = np.meshgrid( np.linspace( np.min(rz_array[:,:,0] ), np.max( rz_array[:,:,0] ),64 ), np.linspace( np.min( rz_array[:,:,1] ), np.max( rz_array[:,:,1] ),64 ) )
-    xyi = np.concatenate( (xxi[:,:,np.newaxis], yyi[:,:,np.newaxis]), axis=2 )
-    # grid the data.
-    zi = griddata(rz_array.reshape(64*64, 2), frames[666,:,:].reshape( 64*64 ), xyi.reshape( 64*64, 2 ), method='linear' )
+    
+def find_sol_mask(shotnr, frame_info = None, rz_array = None ):
+    """
+    Returns a mask for the pixels in between the separatrix and the LCFS.
+    """
+    s = idlsave.read('test_data/separatrix.sav', verbose = False)
+    
+    return (s['rmid'].reshape(64,64) > s['rmid_sepx']) & (s['rmid'].reshape(64,64) < s['rmid_lim'])
+    
+    
+def blob_in_sol(trail, good_domain, logger = None):
+    """
+    Returns a bool array of the indices, in which the COM of a blob is in the SOL (good_domain)
+    """
+    
+    try:
+        # Consider only the positions, where the blob is in the good domain
+        blob_pos = trail.get_trail_com()
+        good_pos_idx = np.array([i in good_domain for i in blob_pos.round().astype('int').tolist()])     
+    
+    except:
+        good_pos_idx = np.ones_like(trail.get_tau())
+        if ( logger != None ):
+            logger.info('This should not happen. Ignoring trigger domain')
 
-    xxi_flat = xxi.reshape(64*64)
-    yyi_flat = yyi.reshape(64*64)
-    
-    # These are the indices of the points that are outside of the separatrix
-    outer_sep_idx = xxi_flat > s.rmid_sepx*100
-    
-    # These are the indices of the points that are within the LCFS
-    within_lim_idx = xxi_flat < s.rmid_lim*100
+    good_pos_idx = good_pos_idx[:-1]
+    return good_pos_idx
 
-    # Flat indices of points between separatrix and limiter shadow
-    gap_idx = np.all( ((xxi_flat > s.rmid_sepx*100), (xxi_flat < s.rmid_lim*100)  ), axis=0)
-    
-    gap_idx_unraveled = np.unravel_index(np.arange(0,64*64)[gap_idx], (64,64) )
-    
-    print 'Separatrix at %f cm' % (s.rmid_sepx*100.)
-    print 'Limiter shadow at %f cm' % (s.rmid_lim*100.)
-        
-    return gap_idx_unraveled

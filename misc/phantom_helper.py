@@ -85,13 +85,13 @@ def make_rz_array(frame_info):
     m2 = ( px20 * (R1 - R0) - px10 * (R2 - R0) ) / (py10 * px20 - py20 * px10)
     m3 = ( py20 * (z1 - z0) - py10 * (z2 - z0) ) / (px10 * py20 - px20 * py10)
     m4 = ( px20 * (z1 - z0) - px10 * (z2 - z0) ) / (py10 * px20 - px10 * py20)
-    M = np.array([ [m1, m2], [m3, m4] ])
+    M = np.array([ [m1, m3], [m2, m4] ])
 
 #   Debug, print coefficients
-#   print 'm1 = %f' % m1
-#   print 'm2 = %f' % m2
-#   print 'm3 = %f' % m3
-#   print 'm4 = %f' % m4
+#    print 'm1 = %f' % m1
+#    print 'm2 = %f' % m2
+#    print 'm3 = %f' % m3
+#    print 'm4 = %f' % m4
 
     # Define pixel indices
     x = np.arange(0, 64)
@@ -105,19 +105,22 @@ def make_rz_array(frame_info):
     
     # Apply the rotation matrix m to each pixel
     res = np.dot(px_idx_array, M) + Rz0
+    # res is a 64x64x2 matrix
+    # axis0 is the poloidal coordinate, 0 = bottom, 63 = top
+    # axis1 is the radial coordinate, 0 = left, 64 = right
+    # axis2 is the (R,z) coordinate at the given pixel field0: R, field1: z
     
 
 #   Debug, print corner positions of GPI camera FOV
 #    assert ( R0 == res[0,0,0] )
 #    assert ( z0 == res[0,0,1] )
 #
-#    print 'Bottom left corner: From MDS R,z = (%f,%f), computed: (%f,%f)' % ( R0, z0, res[0,0,0], res[0,0,1] )
-#    print 'Bottom right corner at R,z = (%f,%f), computed: (%f,%f)' % ( R3, z3, res[0,63,0], res[0,63,1] )
-#    print 'Top left corner at R,z = (%f,%f), computed: (%f,%f)' % ( R1, z1, res[63,0,0], res[63,0,1] )
-#    print 'Top right corner at R,z = (%f,%f), computed: (%f,%f)' % ( R2, z2, res[63,63,0], res[63,63,1] )
+    print 'Bottom left corner: From MDS R,z = (%f,%f), computed: (%f,%f)' % ( R0, z0, res[0,0,0], res[0,0,1] )
+    print 'Bottom right corner at R,z = (%f,%f), computed: (%f,%f)' % ( R3, z3, res[0,63,0], res[0,63,1] )
+    print 'Top left corner at R,z = (%f,%f), computed: (%f,%f)' % ( R1, z1, res[63,0,0], res[63,0,1] )
+    print 'Top right corner at R,z = (%f,%f), computed: (%f,%f)' % ( R2, z2, res[63,63,0], res[63,63,1] )
 
     transform_data = [M, Rz0]
-
     return res, transform_data
     
     
