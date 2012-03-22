@@ -15,6 +15,7 @@ A class that defines a blob event in a sequence of frames for phantom camera dat
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
+from scipy.optimize import leastsq
 from helper_functions import tracker, fwhm, com
 import time
 
@@ -38,6 +39,7 @@ class blobtrail:
         self.dt = 2.5e-6                    # Sampling time
         self.shotnr = shotnr
         
+#        print 'Creating blobtrail event, t0 = %d' % (self.event[1]) , 'lalala', self.event[1]
         
         # Error flags that signal something went wrong with blob tracking
         self.invalid_fw_tracking = False
@@ -53,16 +55,18 @@ class blobtrail:
 
         # Combine results from forward and backward tracking
         # Values about the blob path:        
-        # Frames tracked forward and backward. If no frames are tracked forwards, self.tau_f = 0.
+        # Frames tracked forward and backward. If no frames are tracked forwards, self.tau_f = 0, but
+        # we need to include the frame where the blob is detected. Thus, use max(1, self.tau_f) for 
+        # indexing
         # Use np.max... to make sure, 0 is always included in self.tau
-        self.tau = np.arange( -self.tau_b, np.max([self.tau_f, 1]) )   
+        self.tau = np.arange( -self.tau_b, max(self.tau_f, 1) )   
         # Amplitude of the blob
-        self.amp = np.concatenate( (self.amp_b[self.tau_b:0:-1], self.amp_f[:self.tau_f]) , axis=0 )
+        self.amp = np.concatenate( (self.amp_b[self.tau_b:0:-1], self.amp_f[:max(1, self.tau_f)]) , axis=0 )
         # x- and y- position of the blob
-        self.xycom = np.concatenate( (self.xycom_b[self.tau_b:0:-1,:], self.xycom_f[:self.tau_f,:]) , axis=0 )
-        self.xymax = np.concatenate( (self.xymax_b[self.tau_b:0:-1,:], self.xymax_f[:self.tau_f,:]) , axis=0 ).astype('int')
+        self.xycom = np.concatenate( (self.xycom_b[self.tau_b:0:-1,:], self.xycom_f[:max(1, self.tau_f),:]) , axis=0 )
+        self.xymax = np.concatenate( (self.xymax_b[self.tau_b:0:-1,:], self.xymax_f[:max(1, self.tau_f),:]) , axis=0 ).astype('int')
         # The shape of the blob
-        self.blob_shape = ( self.blob_shape_b + self.blob_shape_f ) / ( self.tau_b + self.tau_f )
+        self.blob_shape = ( self.blob_shape_b + self.blob_shape_f ) / ( self.tau_b + max(1, self.tau_f) )
         # Radial and poloidal width of the blob
         self.fwhm_ell_rad = np.zeros_like(self.amp)
         self.fwhm_ell_pol = np.zeros_like(self.amp)
@@ -73,10 +77,10 @@ class blobtrail:
         Track blob backward frame0 to beginning of frames
         """     
         
-        try:
+        if ( True ):
             self.tau_b, self.amp_b, self.xycom_b, self.xymax_b, fwhm_rad_idx_b, fwhm_pol_idx_b, self.blob_shape_b = \
-                tracker(frames[:self.tau_max,:,:], self.event, self.thresh_amp, self.thresh_dist, self.fwhm_max_idx, self.blob_ext, 'backward', plots = False, verbose = False)
-        except:
+                tracker(frames[:self.tau_max,:,:], self.event, self.thresh_amp, self.thresh_dist, self.blob_ext, 'backward', plots = False, verbose = False)
+        else:
             print 'Could not track backward'
             self.invalid_bw_tracking = True
 
@@ -85,10 +89,10 @@ class blobtrail:
         """
         Track blob forward from frame0
         """
-        try:
+        if ( True ):
             self.tau_f, self.amp_f, self.xycom_f, self.xymax_f, fwhm_rad_idx_f, fwhm_pol_idx_f, self.blob_shape_f = \
-                tracker(frames[self.tau_max:,:,:], self.event, self.thresh_amp, self.thresh_dist, self.fwhm_max_idx, self.blob_ext, 'forward', plots = False, verbose = False)
-        except:
+                tracker(frames[self.tau_max:,:,:], self.event, self.thresh_amp, self.thresh_dist, self.blob_ext, 'forward', plots = False, verbose = False)
+        else:
             print 'Could not track forward'
             self.invalid_fw_tracking = True
 
@@ -198,39 +202,30 @@ class blobtrail:
             xy_off = self.xymax.astype('int')
             self.fwhm_computed = 'MAX'
             
-        slice_pol = np.zeros([ 2 * self.fwhm_max_idx ])
-        slice_rad = np.zeros([ 2 * self.fwhm_max_idx ])
-        
         # Compute the FWHM for each frame if the blob has sufficiently large distance from the
         # frame boundaries.
-        
+         
         for t, ttau in enumerate( self.tau ):
             t_idx = self.event[1] + self.frame0 + ttau
-            if ( xy_off[t,:].min() < self.fwhm_max_idx or (64 - xy_off[t,:].max() ) < self.fwhm_max_idx):
-                continue
             
-            slice_pol[:] = frames[t_idx, xy_off[t,0] - self.fwhm_max_idx : xy_off[t,0] + self.fwhm_max_idx, xy_off[t,1] ]
-            slice_rad[:] = frames[t_idx, xy_off[t,0], xy_off[t,1] - self.fwhm_max_idx : xy_off[t,1] + self.fwhm_max_idx ]
-#            if ( norm ):
-#                slice_pol /= slice_pol.max()
-#                slice_rad /= slice_rad.max()
+            slice_pol = frames[t_idx, max(0, xy_off[t,0] - self.fwhm_max_idx) : min(63, xy_off[t,0] + self.fwhm_max_idx), xy_off[t,1] ]
+            slice_rad = frames[t_idx, xy_off[t,0], max(xy_off[t,1] - self.fwhm_max_idx, 0) : min(xy_off[t,1] + self.fwhm_max_idx, 63) ]
                 
+            fwhm_rad_idx[t,:] = fwhm( slice_rad/slice_rad.max() ) + xy_off[t,1] - self.fwhm_max_idx
+            fwhm_pol_idx[t,:] = fwhm( slice_pol/slice_pol.max() ) + xy_off[t,0] - self.fwhm_max_idx
 
-            fwhm_rad_idx[t,:] = fwhm( slice_rad ) + xy_off[t,1] - self.fwhm_max_idx
-            fwhm_pol_idx[t,:] = fwhm( slice_pol ) + xy_off[t,0] - self.fwhm_max_idx
-
-            if ( rz_array == None ):
-                self.fwhm_ell_rad[t] = fwhm_rad_idx[t,1] - fwhm_rad_idx[t,0]
-                self.fwhm_ell_pol[t] = fwmh_pol_idx[t,1] - fwhm_pol_idx[t,0]
-            else:
+            try:
                 self.fwhm_ell_rad[t] = (rz_array[xy_off[t,0], fwhm_rad_idx[t,1], 0] - rz_array[xy_off[t,0], fwhm_rad_idx[t,0], 0]) / 2.355
                 self.fwhm_ell_pol[t] = (rz_array[fwhm_pol_idx[t,1], xy_off[t,1], 1] - rz_array[fwhm_pol_idx[t,0], xy_off[t,1], 1]) / 2.355
+            except NameError:
+                self.fwhm_ell_rad[t] = fwhm_rad_idx[t,1] - fwhm_rad_idx[t,0]
+                self.fwhm_ell_pol[t] = fwmh_pol_idx[t,1] - fwhm_pol_idx[t,0]
 
 # Debugging of the expressions above
 #                print 'poloidal:  x_off = ', xy_off[t,1], ' from r_idx = ', fwhm_pol_idx[t,1] ,' to ', fwhm_pol_idx[t,0]
 #                print ' is ', rz_array[fwhm_pol_idx[t,1], xy_off[t,1], 1] , ' to ', rz_array[fwhm_pol_idx[t,0], xy_off[t,1], 1]
 
-            if ( plots ) :
+            if ( plots  == True) :
                 plt.figure()
                 plt.title('Cross sections at %s' % position)
                 plt.plot( frames[ t_idx, xy_off[t,0], :], '.-', label='radial xsection')
@@ -239,8 +234,103 @@ class blobtrail:
                 plt.plot( fwhm_pol_idx[t,:], frames[t_idx, fwhm_pol_idx[t,:], xy_off[t,1] ], 'g--' )
                 plt.axvline( xy_off[t, 1], color='red')
                 plt.axvline( xy_off[t, 0], color='red')
-                plt.legend(loc='upper right')
+                plt.legend(loc='lower left')
+                plt.show()
+                
+
         
+    def compute_width_gaussian(self, frames, rz_array = None, position = 'MAX', i_size_max = 12, plots = False ):
+        """
+        Attempts to fit a Gaussian to the peak
+        
+        Input:
+            frames:         GPI data
+            rz_array:       2d array with (R,z) value for each pixel. If omitted, computes FWHM in pixels
+            position:       Compute FWHM at center of mass 'COM' or maximum 'MAX'
+        """
+
+        assert ( position in ['COM', 'MAX'] )
+        
+        fwhm_rad_idx = np.zeros([self.tau_b + self.tau_f, 2], dtype='int')
+        fwhm_pol_idx = np.zeros([self.tau_b + self.tau_f, 2], dtype='int')
+        
+        if ( position == 'COM' ):
+            xy_off = self.xycom.astype('int')
+            self.fwhm_computed = 'COM'
+        elif ( position == 'MAX' ):
+            xy_off = self.xymax.astype('int')
+            self.fwhm_computed = 'MAX'
+
+        i_size_0 = 4
+
+        gaussian_fun = lambda p, x: np.exp( -(x-p[0])**2 / (2. * p[1]**2.) ) 
+        err_fun = lambda p, y, x: y - gaussian_fun(p, x)
+        fit_errs = np.zeros( int( (i_size_max - i_size_0)/2) )
+        i_range = np.arange(i_size_0, i_size_max, 2)
+
+        for t, ttau in enumerate( self.tau ):
+        # Fit a Gaussian in the radial and poloidal direction        
+            t_idx = self.event[1] + self.frame0 + ttau
+            for size_idx, i_size in enumerate( i_range ):
+                # Test different sizes of the fit domain. Take the fit which minimizes the residual squared                
+                slice_pol = frames[t_idx, max(0, xy_off[t,0] - i_size) : min(63, xy_off[t,0] + i_size), xy_off[t,1] ]
+                slice_rad = frames[t_idx, xy_off[t,0], max(0, xy_off[t,1] - i_size) : min(63, xy_off[t,1] + i_size) ]
+                
+                try:
+                    X_pol = rz_array[ max(0, xy_off[t,0] - i_size) : min(63, xy_off[t,0] + i_size), xy_off[t,1],  1]
+                    X_rad = rz_array[ xy_off[t,0], max(0, xy_off[t,1] - i_size) : min(63, xy_off[t,1] + i_size), 0] 
+    
+                except NameError:
+                    X_pol = np.arange( np.size(slice_pol) )
+                    X_rad = np.arange( np.size(slice_rad) )
+                
+                p0_pol = [ rz_array[xy_off[t,0], xy_off[t,1], 1], 0.1 ]
+                p0_rad = [ rz_array[xy_off[t,0], xy_off[t,1], 0], 0.1 ]
+                
+                [p_pol, success_pol] = leastsq( err_fun, p0_pol, args = (slice_pol/slice_pol.max(), X_pol ), maxfev = 10000 )
+                [p_rad, success_rad] = leastsq( err_fun, p0_rad, args = (slice_rad/slice_rad.max(), X_rad ), maxfev = 10000 )                
+                            
+                error_pol = np.sqrt( np.sum( (slice_pol - gaussian_fun(p_pol, X_pol))**2  ) / (np.size(slice_pol) - 1.)  )
+                error_rad = np.sqrt( np.sum( (slice_rad - gaussian_fun(p_rad, X_rad))**2  ) / (np.size(slice_rad) - 1.)  )        
+                fit_errs[size_idx] = max( error_pol, error_rad)
+
+            # Repeat the fit with domain that minimizes error
+            i_size = i_range[fit_errs.argmin()]
+            slice_pol = frames[t_idx, max(0, xy_off[t,0] - i_size) : min(63, xy_off[t,0] + i_size), xy_off[t,1] ]
+            slice_rad = frames[t_idx, xy_off[t,0], max(0, xy_off[t,1] - i_size) : min(63, xy_off[t,1] + i_size) ]
+            
+            try:
+                X_pol = rz_array[ max(0, xy_off[t,0] - i_size) : min(63, xy_off[t,0] + i_size), xy_off[t,1],  1]
+                X_rad = rz_array[ xy_off[t,0], max(0, xy_off[t,1] - i_size) : min(63, xy_off[t,1] + i_size), 0] 
+
+            except NameError:
+                X_pol = np.arange( np.size(slice_pol) )
+                X_rad = np.arange( np.size(slice_rad) )
+            
+            p0_pol = [ rz_array[xy_off[t,0], xy_off[t,1], 1], 0.1 ]
+            p0_rad = [ rz_array[xy_off[t,0], xy_off[t,1], 0], 0.1 ]
+            [p_pol, success_pol] = leastsq( err_fun, p0_pol, args = (slice_pol/slice_pol.max(), X_pol ), maxfev = 10000 )
+            [p_rad, success_rad] = leastsq( err_fun, p0_rad, args = (slice_rad/slice_rad.max(), X_rad ), maxfev = 10000 )                
+                        
+            error_pol = np.sqrt( np.sum( (slice_pol - gaussian_fun(p_pol, X_pol))**2  ) / (np.size(slice_pol) - 1.)  )
+            error_rad = np.sqrt( np.sum( (slice_rad - gaussian_fun(p_rad, X_rad))**2  ) / (np.size(slice_rad) - 1.)  )
+
+            self.fwhm_ell_rad[t] = p_rad[1]
+            self.fwhm_ell_pol[t] = p_pol[1]
+    
+            if ( plots == True ):
+                F = plt.figure()
+                plt.title('Gaussian fit, i_size = %d' % i_size)
+                plt.plot( X_pol, slice_pol/slice_pol.max() )
+                plt.plot( X_pol, gaussian_fun(p_pol, X_pol), label = 'width =%f, Error = %f' % (p_pol[1], error_pol) )
+                plt.legend()
+                F.savefig('1120217020/plots/pol_fit_%d.png' % t_idx )
+#                plt.show()
+                plt.close()
+                
+                
+            
+
         
     def get_frame0(self):
         """

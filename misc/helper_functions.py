@@ -82,7 +82,7 @@ def fwhm(array):
     # Divide the intervall in halfs at the peak and find the index of the value in the left half
     # of the intervall before it increases over 0.5 * max
 
-    # The FWHM is between the indeces closest to the maximum, whose values are below 0.5 times the max
+    # The FWHM is between the indices closest to the maximum, whose values are below 0.5 times the max
     try:
         left_idx  = np.argwhere( array[1: max_idx] < fwhm )[-1] + 1
     except IndexError:  
@@ -99,7 +99,7 @@ def fwhm(array):
     
     
     
-def tracker(frames, event, thresh_amp, thresh_dis, fwhm_max_idx, blob_ext, direction='forward', plots = False, verbose = False):
+def tracker(frames, event, thresh_amp, thresh_dis, blob_ext, direction='forward', plots = False, verbose = False):
     """
     Track the blob in a dynamic intervall forward or backward in time, as long as its
     amplitude is over a given threshold and the peak has detected less than a given
@@ -112,7 +112,6 @@ def tracker(frames, event, thresh_amp, thresh_dis, fwhm_max_idx, blob_ext, direc
         direction:  Traverse frames 'forward' or 'backward' in dimension 0
         thresh_amp: Threshold for amplitude decay relative to frame0
         thresh_dis: Threshold for blob movement relative to previous frame
-        fwhm_max_idx:   # of pixels the structure needs to be away from the boundary to do FWHM analysis
         blob_ext:   Extend of the blob used for determining its average shape
     
     Returns:
@@ -128,7 +127,6 @@ def tracker(frames, event, thresh_amp, thresh_dis, fwhm_max_idx, blob_ext, direc
         print 'event = ', event
         print 'thresh_amp = ', thresh_amp
         print 'thresh_dis = ', thresh_dis
-        print 'fwhm_max_idx = ', fwhm_max_idx
         print 'blob_ext = ', blob_ext
     
     assert ( direction in ['forward', 'backward'] )
@@ -149,7 +147,7 @@ def tracker(frames, event, thresh_amp, thresh_dis, fwhm_max_idx, blob_ext, direc
 
     if ( verbose ):
         print 'Tracking blob %s, t_idx %d x = %d, y = %d, I0 = %f' % (direction, tau, R0_last, z0_last, I0 )
-        print 'thresh_amp = %f, thresh_dis = %f, fwhm_max_idx = %d' % (thresh_amp * I0, thresh_dis, fwhm_max_idx)
+        print 'thresh_amp = %f, thresh_dis = %f' % (thresh_amp * I0, thresh_dis)
     xycom   = np.zeros([tau_max, 2])            # Return values: COM position of peak
     xymax   = np.zeros([tau_max, 2])            # Position of the blob peak
     fwhm_pol_idx = np.zeros([tau_max, 2], dtype='int')       # Poloidal FWHM 
@@ -207,16 +205,15 @@ def tracker(frames, event, thresh_amp, thresh_dis, fwhm_max_idx, blob_ext, direc
             print 'Peak at (%d,%d), COM at (%d,%d)' % (xymax[tau,0], xymax[tau,1], xycom[tau,0], xycom[tau,1])
 
 
-        try:
-            blob_shape = event_frame [ycom_off - blob_ext/2 : ycom_off + blob_ext/2, xcom_off - blob_ext/2 : xcom_off + blob_ext/2]    
-            blob[:np.shape(blob_shape)[0], :np.shape(blob_shape)[1]] += blob_shape
-        except ValueError:
-            print 'Error adding blob shape to average'
+#        try:
+        blob_shape = event_frame [ycom_off - blob_ext/2 : ycom_off + blob_ext/2, xcom_off - blob_ext/2 : xcom_off + blob_ext/2]    
+        blob[:np.shape(blob_shape)[0], :np.shape(blob_shape)[1]] += blob_shape
+#        except ValueError:
+#            print 'Error adding blob shape to average'
         
         amp[tau] = event_frame[z0_last, R0_last]      
         # Follow the peak
         z0_last, R0_last = xymax[tau, :].astype('int')
-
 
         if ( plots ) :
             plt.figure()
