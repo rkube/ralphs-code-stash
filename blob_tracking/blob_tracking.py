@@ -47,7 +47,7 @@ def blob_tracking(shotnr, frames, frame_info, frame0 = 0, minmax = [2.0, 10.0], 
     
     # Define the events we will analyze
     event_range = np.arange( num_events )
-#    event_range = np.arange( 20 )
+#    event_range = np.arange( 550, 560)
     num_events  = np.size(event_range)
     
     # Get R,z projection, grid data
@@ -65,9 +65,9 @@ def blob_tracking(shotnr, frames, frame_info, frame0 = 0, minmax = [2.0, 10.0], 
         z0 = event[2]
         R0 = event[3]    
         
-        print 'peak %d / %d' % ( idx, num_events)
+        print 'peak %d / %d, frame %d' % ( idx, num_events, t0)
         try:
-            newtrail = blobtrail( frames[t0 - tau_max : t0 + tau_max, :, :], event, frame0, shotnr, thresh_amp=0.7, blob_ext = 12, thresh_dist = 8., fwhm_max_idx = 12, doplots = False )
+            newtrail = blobtrail( frames[t0 - tau_max : t0 + tau_max, :, :], event, frame0, shotnr, thresh_amp=0.7, blob_ext = 14, thresh_dist = 8., fwhm_max_idx = 18, doplots = False )
             if ( np.size(newtrail.get_tau()) < 4 ):
                 fail_list.append(idx)
                 failcount += 1
@@ -89,9 +89,13 @@ def blob_tracking(shotnr, frames, frame_info, frame0 = 0, minmax = [2.0, 10.0], 
                 print 'Failed to track blob %d / %d' % (idx, num_events)
             continue
             
-        try:
-            newtrail.compute_fwhm(frames, rz_array, position = 'MAX', norm = True,  plots = False)
-        except:
+#        try:
+        if ( True ):
+#            newtrail.compute_fwhm(frames, rz_array, position = 'MAX', norm = True,  plots = True)
+            newtrail.compute_width_gaussian(frames, rz_array, position = 'MAX', i_size_max = 10, plots = True )
+            
+        if ( False ):
+#        except:
             fail_list.append(idx)
             failcount += 1
             

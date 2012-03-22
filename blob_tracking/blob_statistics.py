@@ -80,7 +80,7 @@ def statistics_blob_sol(shotnr, blobtrails, frame_info, frames = None, good_doma
         # The blob survived :)
         blobs_used_good_domain[idx] = 1
         
-        trail.plot_trail(frames, rz_array = rz_array, xyi = xyi, plot_com = True, plot_shape = True, save_frames = True)
+        #trail.plot_trail(frames, rz_array = rz_array, xyi = xyi, plot_com = True, plot_shape = True, save_frames = True)
  
     print 'failcount = %d ' % failcount
 
@@ -112,8 +112,8 @@ def plot_blob_stat1(blob_amps, blob_ell, blob_vel, blob_shape, fail_list, shotnr
     
     plt.subplot(222)
     plt.title('Length at normalized amplitude' )
-    plt.hist( blob_ell[:, 0], bins = 15, histtype = 'step', label='radial', linewidth = 2 )
-    plt.hist( blob_ell[:, 1], bins = 15, histtype = 'step', label='poloidal', linewidth = 2)
+    plt.hist( blob_ell[:, 0], bins = 15, histtype = 'step', label='$\\ell_{\mathrm{rad}} = %f \\pm %f$' % (blob_ell[:, 0].mean(), blob_ell[:, 0].std()) , linewidth = 2 )
+    plt.hist( blob_ell[:, 1], bins = 15, histtype = 'step', label='$\\ell_{\mathrm{pol}} = %f \\pm %f$' % (blob_ell[:, 1].mean(), blob_ell[:, 1].std()), linewidth = 2)
     plt.errorbar( blob_ell[:, 0].mean(), 3, xerr = blob_ell[:,0].std(), color = 'b', marker = '>', markersize = 8)
     plt.errorbar( blob_ell[:, 1].mean(), 6, xerr = blob_ell[:,1].std(), color = 'g', marker = '^', markersize = 8)
     plt.xlabel('Length / cm')
@@ -121,8 +121,8 @@ def plot_blob_stat1(blob_amps, blob_ell, blob_vel, blob_shape, fail_list, shotnr
     plt.legend(loc = 'upper left')
     
     plt.subplot(223)
-    plt.hist( blob_vel[:, 0], bins = 15, histtype = 'step', label='radial', linewidth = 2 )
-    plt.hist( blob_vel[:, 1], bins = 15, histtype = 'step', label='poloidal', linewidth = 2 )
+    plt.hist( blob_vel[:, 0], bins = 15, histtype = 'step', label='$V_{\mathrm{rad}} = %f \\pm %f$' % (blob_vel[:, 0].mean(), blob_vel[:, 0].std()), linewidth = 2 )
+    plt.hist( blob_vel[:, 1], bins = 15, histtype = 'step', label='$V_{\mathrm{pol}} = %f \\pm %f$' % (blob_vel[:, 1].mean(), blob_vel[:, 1].std()), linewidth = 2 )
     plt.errorbar( blob_vel[:, 0].mean(), 3, xerr = blob_vel[:,0].std(), color = 'b', marker = '>', markersize = 8)
     plt.errorbar( blob_vel[:, 1].mean(), 6, xerr = blob_vel[:,1].std(), color = 'g', marker = '^', markersize = 8)
     plt.ylim(0, plt.ylim()[1])
@@ -151,7 +151,7 @@ def plot_blob_stat1(blob_amps, blob_ell, blob_vel, blob_shape, fail_list, shotnr
 
     if ( save == True ):
         F = plt.gcf()
-        filename = '%d/results/%d_thresh20_com_blobs_meaninsol_2.eps' % ( shotnr, shotnr )
+        filename = '%d/results/%d_thresh15_com_blobs_meaninsol_2.eps' % ( shotnr, shotnr )
         print 'Saving file %s' % filename
         F.savefig( filename )
         plt.close()
@@ -166,6 +166,8 @@ def plot_blob_stat2(blob_amps, blob_ell, blob_vel, blob_shape, fail_list, shotnr
     low_vrad_idx = np.argwhere( blob_vel[:, 0] < 100 )
     print np.size(low_vrad_idx)
 
+    idx = (blob_ell[:,1] > 0) & (blob_ell[:,1] < 2.0)
+
     F = plt.figure( figsize = (14,7) )
     F.text(0.5, 0.95, 'shot #%d, %d blob events, failcount = %d' % (shotnr, num_events, failcount), ha='center')
     plt.subplot(131)
@@ -175,18 +177,18 @@ def plot_blob_stat2(blob_amps, blob_ell, blob_vel, blob_shape, fail_list, shotnr
     
     plt.subplot(132)
     plt.title('Length at normalized amplitude' )
-    plt.hist( blob_ell[:, 0], bins = 15, histtype = 'step', label='radial', linewidth = 2 )
-    plt.hist( blob_ell[:, 1], bins = 15, histtype = 'step', label='poloidal', linewidth = 2)
+    plt.hist( blob_ell[:, 0], bins = 15, histtype = 'step', label='$\\ell_{\mathrm{rad}} = %3.2f \\pm %3.2f$' % (blob_ell[:, 0].mean(), blob_ell[:, 0].std()), linewidth = 2 )
+    plt.hist( blob_ell[idx, 1], bins = 15, histtype = 'step', label='$\\ell_{\mathrm{pol}} = %3.2f \\pm %3.2f$' % (blob_ell[idx, 1].mean(), blob_ell[idx, 1].std()), linewidth = 2)
     plt.errorbar( blob_ell[:, 0].mean(), 3, xerr = blob_ell[:,0].std(), color = 'b', marker = '>', markersize = 8)
-    plt.errorbar( blob_ell[:, 1].mean(), 6, xerr = blob_ell[:,1].std(), color = 'g', marker = '^', markersize = 8)
+    plt.errorbar( blob_ell[idx, 1].mean(), 6, xerr = blob_ell[idx,1].std(), color = 'g', marker = '^', markersize = 8)
     plt.xlabel('Length / cm')
     plt.ylabel('Counts')
     plt.legend(loc = 'upper left')
     
     plt.subplot(133)
     plt.title('Blob velocities')
-    plt.hist( blob_vel[:, 0], bins = 15, histtype = 'step', label='radial', linewidth = 2 )
-    plt.hist( blob_vel[:, 1], bins = 15, histtype = 'step', label='poloidal', linewidth = 2 )
+    plt.hist( blob_vel[:, 0], bins = 15, histtype = 'step', label='$V_{\mathrm{rad}} = %5.3f \\pm %5.3f$' % (blob_vel[:, 0].mean(), blob_vel[:, 0].std()), linewidth = 2 )
+    plt.hist( blob_vel[:, 1], bins = 15, histtype = 'step', label='$V_{\mathrm{pol}} = %5.3f \\pm %5.3f$' % (blob_vel[:, 1].mean(), blob_vel[:, 1].std()), linewidth = 2 )
     plt.errorbar( blob_vel[:, 0].mean(), 3, xerr = blob_vel[:,0].std(), color = 'b', marker = '>', markersize = 8)
     plt.errorbar( blob_vel[:, 1].mean(), 6, xerr = blob_vel[:,1].std(), color = 'g', marker = '^', markersize = 8)
     plt.ylim(0, plt.ylim()[1])
@@ -198,17 +200,17 @@ def plot_blob_stat2(blob_amps, blob_ell, blob_vel, blob_shape, fail_list, shotnr
         logger.info('Mean radial velocity: %6f +- %6f' % ( blob_vel[:, 0].mean(), blob_vel[:,0].std() ) )
         logger.info('Mean poloidal velocity: %6f +- %6f' % ( blob_vel[:, 1].mean(), blob_vel[:,1].std() ) )
         logger.info('Mean radial length: %6f +- %6f' % ( blob_ell[:, 0].mean(), blob_ell[:,0].std() ) )
-        logger.info('Mean poloidal length: %6f +- %6f' % ( blob_ell[:, 1].mean(), blob_ell[:,1].std() ) )
+        logger.info('Mean poloidal length: %6f +- %6f' % ( blob_ell[idx, 1].mean(), blob_ell[idx,1].std() ) )
     except: 
         print 'Mean radial velocity: %6f +- %6f' % ( blob_vel[:, 0].mean(), blob_vel[:,0].std() ) 
         print 'Mean poloidal velocity: %6f +- %6f' % ( blob_vel[:, 1].mean(), blob_vel[:,1].std() )
         print 'Mean radial length: %6f +- %6f' % ( blob_ell[:, 0].mean(), blob_ell[:,0].std() )
-        print 'Mean poloidal length: %6f +- %6f' % ( blob_ell[:, 1].mean(), blob_ell[:,1].std() )
+        print 'Mean poloidal length: %6f +- %6f' % ( blob_ell[idx, 1].mean(), blob_ell[idx,1].std() )
 
 
     if ( save == True ):
         F = plt.gcf()
-        filename = '%d/results/%d_thresh20_com_blobs_meaninsol_2.eps' % ( shotnr, shotnr )
+        filename = '%d/results/%d_thresh15_com_blobs_meaninsol2_gauss_fit.eps' % ( shotnr, shotnr )
         print 'Saving file %s' % filename
         F.savefig( filename )
         plt.close() 
@@ -240,21 +242,17 @@ def plot_blob_scatter1(blob_amps, blob_ell, blob_vel, blob_shape, shotnr, fail_l
     plt.xlabel('Intensity / a.u.')
     plt.ylabel('Velocity / ms^-1')
     
-    amp0_idx = np.argwhere(blob_amps < 2.0)
-    amp1_idx = np.argwhere( (blob_amps > 2.0) & (blob_amps < 3.0) )
-    amp2_idx = np.argwhere( (blob_amps > 3.0) & (blob_amps < 4.0) )
-    amp3_idx = np.argwhere(blob_amps < 4.0)
+  
+    idx = (blob_ell[:,1] > 0) & (blob_ell[:,1] < 2.0)
+    print 'Lengths used for correlation: ', blob_ell[idx,1]
   
      # Correlate velocity against filament size
-    corr_vr_ell = (( blob_vel[:,0] - blob_vel[:,0].mean() ) * ( blob_ell[:,1] - blob_ell[:,1].mean() )).mean() / \
-        ( blob_vel[:,0].std() * blob_ell[:,1].std() )
+    corr_vr_ell = (( blob_vel[idx,0] - blob_vel[idx,0].mean() ) * ( blob_ell[idx,1] - blob_ell[idx,1].mean() )).mean() / \
+        ( blob_vel[idx,0].std() * blob_ell[idx,1].std() )
 
     plt.subplot(133)
     plt.title('Length vs Velocity.\\ N = %d, Correlation: %f' % ( np.size(blob_vel[:,0]), corr_vr_ell ))
-    plt.plot( blob_ell[amp0_idx,1], blob_vel[amp0_idx, 0], 'bv', markersize = 6 )
-    plt.plot( blob_ell[amp1_idx,1], blob_vel[amp1_idx, 0], 'gs', markersize = 4 )
-    plt.plot( blob_ell[amp2_idx,1], blob_vel[amp2_idx, 0], 'ro', markersize = 3 )
-    plt.plot( blob_ell[amp3_idx,1], blob_vel[amp3_idx, 0], 'k^', markersize = 2 )
+    plt.plot( blob_ell[idx,1], blob_vel[idx, 0], 'bo', markersize = 6 )
     plt.xlabel('Poloidal length / cm')
     plt.ylabel('Radial velocity / ms^-1')
 
@@ -265,7 +263,7 @@ def plot_blob_scatter1(blob_amps, blob_ell, blob_vel, blob_shape, shotnr, fail_l
 
     if ( save == True ):
         F = plt.gcf()
-        filename = '%d/results/%d_thresh20_com_scatter_meaninsol_2.eps' % ( shotnr, shotnr )
+        filename = '%d/results/%d_thresh15_com_scatter_meaninsol2_gauss_fit.eps' % ( shotnr, shotnr )
         print 'Saving file %s' % filename
         F.savefig( filename )
         plt.close()
