@@ -20,8 +20,6 @@ E[ ] = Sum_i=1^N t_i p_i
 
 where t_i is the value of the timeseries at t=i and p_i the probablity.
 
-
-
 """
 
 import numpy as np
@@ -44,9 +42,34 @@ def correlate( signal1, signal2, window_length ):
     # Compute correlation, tau is the timelag
     corr[ window_length ] = (signal1 * signal2).mean()
     for tau in np.arange(1, window_length+1):
-        # tau < 0
-        corr[ window_length - tau ]     = (signal1[tau:]  * signal2[:-tau]).mean()
         # tau > 0
-        corr[ window_length + tau ]     = (signal1[:-tau] * signal2[tau:]).mean()
+        corr[ window_length + tau ]     = (signal1[tau:]  * signal2[:-tau]).mean()
+        # tau < 0
+        corr[ window_length - tau ]     = (signal1[:-tau] * signal2[tau:]).mean()
+    corr = corr / ( signal1.std() * signal2.std() )
     
     return corr
+
+
+def fwhm_estimate( corr, dt ):
+    n = np.size(corr)
+
+    for n_up in np.arange(n/2+1, n):
+        if ( corr[n_up] < 0.5  ):
+            break
+
+    for n_down in np.arange( (n-1)/2, 0, -1 ):
+        if ( corr[n_down] < 0.5 ):
+            break
+
+    return [n_down, n_up], dt*(n_up-n_down)
+
+
+
+
+
+
+
+
+
+
