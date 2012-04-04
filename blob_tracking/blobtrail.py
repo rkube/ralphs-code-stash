@@ -14,10 +14,11 @@ A class that defines a blob event in a sequence of frames for phantom camera dat
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from scipy.interpolate import griddata
 from scipy.optimize import leastsq
 from helper_functions import tracker, fwhm, com
-import time
+from separatrix_line import surface_line
 
 
 class blobtrail:
@@ -97,7 +98,7 @@ class blobtrail:
             self.invalid_fw_tracking = True
 
 
-    def plot_trail(self, frames, rz_array = None, xyi = None, plot_com = False, plot_max = False, plot_shape = False, save_frames = False):
+    def plot_trail(self, frames, rz_array = None, xyi = None, trigger_box = None, sep_data = None, plot_com = False, plot_max = False, plot_shape = False, plot_geom = False, save_frames = False):
         """
         Plot the motion of the blob. The GPI frames are to be supplied externally
         
@@ -106,6 +107,7 @@ class blobtrail:
             plot_com:       Mark the center of mass of the blob
             plot_max:       Mark the maximum of the blob
             plot_shape:     If available, mark the FWHM of the blob
+            plot_geom:      Overplot triggering blox, limiter shadow and separatrix
             save_frames:    Save the frames
         
         """
@@ -114,11 +116,13 @@ class blobtrail:
         for f_idx, tau in enumerate( np.arange( -self.tau_b, self.tau_f) ):
             plt.figure()
             plt.title('frame %05d' % ( self.event[1] + self.frame0 + tau) )  
+            plt.xlabel('R / cm')
+            plt.ylabel('Z / cm')
             
             try:    # Try plotting everythin in machine coordinates. If it fails, draw in pixels
                 zi = griddata(rz_array.reshape(64*64, 2), frames[self.event[1] + self.frame0 + tau, :, :].reshape( 64*64 ), xyi.reshape( 64*64, 2 ), method='linear' )
-                zi[0] = np.max(frames)
-                zi[1] = np.max(frames)
+                zi[0] = 5.0#np.max(frames)
+                zi[1] = 5.0#np.max(frames)
                 plt.contour(xyi[:,:,0], xyi[:,:,1], zi.reshape(64,64), 32, linewidths = 0.5, colors = 'k')
                 plt.contourf(xyi[:,:,0], xyi[:,:,1], zi.reshape(64,64), 32, cmap = plt.cm.hot)
 
@@ -170,6 +174,38 @@ class blobtrail:
                     plt.text(text_x, text_y, '$V_{max} = (%4.1f, %4.1f)$' % \
                         (self.get_velocity_max(rz_array)[f_idx,0], self.get_velocity_max(rz_array)[f_idx,1] ) , \
                         fontdict = dict(size = 16., color='white', weight='bold' ) )
+            if ( plot_geom == True ):
+                #try:
+                if ( True ):
+                    # Get the position of the pixels for the separatrix and limiter
+                    separatrix_pxs  = surface_line( sep_data['rmid'].reshape(64,64) > sep_data['rmid_sepx'], mode='max' )
+                    limiter_pxs  = surface_line( sep_data['rmid'].reshape(64,64) < sep_data['rmid_lim'], mode='min' )
+                    # Compute position, width and height of the triggering box
+                    tb_lower_left = (xyi[ trigger_box[2],trigger_box[0],0], xyi[trigger_box[2],trigger_box[0],1])
+                    tb_width =  (xyi[trigger_box[2],trigger_box[1],0] - xyi[trigger_box[2],trigger_box[0],0])
+                    tb_height = (xyi[trigger_box[3],trigger_box[0],1] - xyi[trigger_box[2],trigger_box[0],1] )
+                    
+                    # Plot the triggering domain. Position, height and width are not automatically determined
+                    # but static values.
+                    
+                    triggering_box = mpatches.Rectangle( (89.9,-4.5), width = 1.0, height = 3.2, fill = False, ls = 'dashdot', ec = 'w', lw = 3 )
+                    fig = plt.gcf()
+                    ax = fig.gca()
+                    ax.add_patch( triggering_box )
+                    
+                    # Plot the separatrix
+                    sep_x = [xyi[i, separatrix_pxs[i], 0] for i in np.arange(64) ]
+                    sep_y = [xyi[i, separatrix_pxs[i], 1] for i in np.arange(64) ]
+                    plt.plot( sep_x, sep_y, 'w--', linewidth=4)
+                    
+                    lim_x = [xyi[i, limiter_pxs[i], 0] for i in np.arange(64) ]
+                    lim_y = [xyi[i, limiter_pxs[i], 1] for i in np.arange(64) ]
+                    plt.plot( lim_x, lim_y, 'w-.', linewidth=4)
+            
+                #except:
+                #    print 'Error plotting geometry :('
+
+
 
             if ( save_frames == True ):
                 F = plt.gcf()

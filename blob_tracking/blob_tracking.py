@@ -8,6 +8,7 @@ from blobtrail import blobtrail
 from phantom_helper import make_rz_array
 from scipy.interpolate import griddata
 import cPickle as pickle
+import idlsave
 
 
 """
@@ -32,6 +33,9 @@ def blob_tracking(shotnr, frames, frame_info, frame0 = 0, minmax = [2.0, 10.0], 
         logger.info('frame0 = %d, nframes = %d' % (frame0, nframes) )
     except:
         print 'frame0 = ', frame0, 'nframes = ', nframes
+    
+    # Load separatrix data for shot
+    s = idlsave.read('%d/%d_separatrix.sav' % ( shotnr, shotnr), verbose=False)
     
     # Detect peaks
     # The detect_peak_3d returns time indices of blob events relative for the array passed to it.
@@ -106,7 +110,7 @@ def blob_tracking(shotnr, frames, frame_info, frame0 = 0, minmax = [2.0, 10.0], 
             continue
             
 
-#        newtrail.plot_trail(frames, rz_array = rz_array, xyi = xyi, plot_com = True, plot_shape = True, save_frames = True)
+        newtrail.plot_trail(frames, rz_array = rz_array, xyi = xyi, trigger_box = trigger, sep_data = s, plot_com = True, plot_shape = True, plot_geom = True, save_frames = True)
         trails.append(newtrail)
         
     return trails
