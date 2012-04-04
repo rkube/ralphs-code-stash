@@ -37,8 +37,10 @@ def set_rcparams_poster(myParams):
 # Figure in RevTex4 is 246 points wide
 
 
-# Full column width figure for revtex articles
 def set_rcparams_article_full(myParams):
+    """
+    Full column width figure for revtex
+    """
     fig_width = 246.0 # in points
     fig_height = fig_width / golden_ratio
 
@@ -62,8 +64,10 @@ def set_rcparams_article_full(myParams):
 
     return fig_width, fig_height
 
-# Full column, square, width figure for revtex articles
 def set_rcparams_article_fullsq(myParams):
+    """
+    Full column, square with figure for revtex
+    """
     fig_width = 246.0 # in points
     fig_height = fig_width #/ golden_ratio
 
@@ -88,8 +92,10 @@ def set_rcparams_article_fullsq(myParams):
     return fig_width, fig_height
 
 
-# Half column width figure for revtex articles
 def set_rcparams_article_half(myParams):
+    """
+    Half column width figures for revtex
+    """
     fig_width = 123.0 # in points
     fig_height = fig_width / golden_ratio
     fig_width_in = fig_width / 72.72
@@ -114,3 +120,14 @@ def set_rcparams_article_half(myParams):
 
 
 
+def set_rcparams_pres_small(myParams):
+    """
+    Use large axis labels and thick lines for small plots in presentations
+    """
+    myParams['font.family'] = 'sans-serif'
+    myParams['text.usetex'] = False
+    myParams['axes.labelsize'] = 16
+    myParams['lines.linewidth'] = 2.0
+    myParams['font.size'] = 14
+    myParams['xtick.labelsize'] = 'large'
+    myParams['ytick.labelsize'] = 'large'    

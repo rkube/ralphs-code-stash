@@ -22,7 +22,7 @@ def blob_tracking(shotnr, frames, frame_info, frame0 = 0, minmax = [2.0, 10.0], 
     minmax  = np.array(minmax)              # Peaks within 2.5 and 10.0 times the rms
     lag     = 20                            # Deadtime after a peak in which no blob is detected
     time_arr= np.arange(0, nframes)         # Just the time, in frame numbers of the time series
-    trigger = np.array([40, 55, 16, 48])    # Triggerbox r_low, r_up, z_low, z_up
+    trigger = np.array([40, 50, 16, 48])    # Triggerbox r_low, r_up, z_low, z_up
     toffset = frame0 + lag                  # Total frame offset used in this script.
     tau_max   = 7                           # Maximal time intervall for which we track a blob
     # 1 frame is 2.5µs
