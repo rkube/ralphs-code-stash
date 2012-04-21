@@ -4,7 +4,7 @@
 import numpy as np
 #import pymorph as pm
 import matplotlib.pyplot as plt
-from detect_peak import detect_peak_3d
+from blob_tracking.detect_peak import detect_peak_3d
 #from helper_functions import com, com_rz, fwhm
 from tracker import tracker
 from phantom_helper import make_rz_array

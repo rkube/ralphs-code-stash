@@ -3,9 +3,9 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from detect_peak import detect_peak_3d
-from blobtrail import blobtrail
-from phantom_helper import make_rz_array
+from blob_tracking.detect_peak import detect_peak_3d
+from blob_tracking.blobtrail import blobtrail
+from misc.phantom_helper import make_rz_array
 from scipy.interpolate import griddata
 import cPickle as pickle
 import idlsave

@@ -4,7 +4,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from phantom_helper import make_rz_array
+from misc.phantom_helper import make_rz_array
 from scipy.signal import correlate
 from helper_functions import blob_in_sol
 
