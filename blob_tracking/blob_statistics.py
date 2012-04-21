@@ -15,9 +15,103 @@ blobtrails from blob_tracking
 """
 
 
+def statistics_sol( shotnr, blobtrails, frame_info, mode = None, value = None, frames = None, good_domain = None, logger = None):
+    """
+    Compute blob in the SOL statistics.
+    Compute stuff separately the routine below does in one step
+    """
+    np.set_printoptions(linewidth=999999)
+    min_sol_px = 4
+
+    assert( mode in ('amp', 'vel', 'ell') )
+
+#    # Get R,z projection, grid data
+    rz_array, transform_data = make_rz_array(frame_info)
+    xxi, yyi = np.meshgrid( np.linspace( np.min(rz_array[:,:,0] ), np.max( rz_array[:,:,0] ),64 ), np.linspace( np.min( rz_array[:,:,1] ), np.max( rz_array[:,:,1] ),64 ) )
+    xyi = np.concatenate( (xxi[:,:,np.newaxis], yyi[:,:,np.newaxis]), axis=2 )
+    
+    num_events    = len(blobtrails)    
+    failcount     = 0
+    
+    if ( mode == 'amp' ):
+        blob_stat = np.zeros([num_events])
+    elif ( mode in ( 'vel', 'ell' ) ):
+        blob_stat = np.zeros([num_events, 2])
+    
+    blobs_used_good_domain = np.zeros(num_events, dtype='bool')
+    fail_list = []
+    
+    blob_shape_count = 0
+    
+    for idx, trail in enumerate(blobtrails):
+    
+        good_pos_idx = blob_in_sol(trail, good_domain, logger)
+        
+        # Skip this blob if it is not detected between LCFS and LS
+        if ( good_pos_idx.sum() < min_sol_px ):
+            if ( logger != None ):
+                logger.debug('Blob %d/%d was not detected in the SOL, rejecting' % (idx, num_events) )
+            else:
+                print 'Blob %d/%d was not detected in the SOL, rejecting' % (idx, num_events)
+            continue
+
+        if ( logger != None ):
+            logger.debug('Blob %d is recorded at %d/%d positions in the SOL' % (idx, np.sum(good_pos_idx), np.size(trail.get_tau()) ) )
+        else:
+            print 'Blob %d is recorded at %d/%d positions in the SOL' % (idx, np.sum(good_pos_idx), np.size(trail.get_tau()) )
+    
+        try:
+            if ( mode == 'amp' ):
+            # Do not use the last position since no velocity can be computed for it.
+                blob_stat[idx]  = trail.get_amp()[good_pos_idx].mean()#[newtrail.get_frame0()]
+            elif ( mode == 'vel' ):
+                blob_stat[idx,:] = trail.get_velocity_com(rz_array)[good_pos_idx[:-1]].mean( axis = 0 )#[newtrail.get_frame0(),0]#.mean( axis=0 )
+            elif ( mode == 'ell' ):
+                blob_ell_rad = trail.get_ell_rad()[good_pos_idx]
+                blob_err_ell_rad = 1./trail.get_err_ell_rad()[good_pos_idx]
+                blob_stat[idx, 0] =   np.sum(blob_ell_rad * blob_err_ell_rad) / np.sum( blob_err_ell_rad )    
+#                print 'Blob lengths:', blob_ell_rad
+#                print 'Errors:', trail.get_err_ell_rad()[good_pos_idx]
+#                print 'Weights:', blob_err_ell_rad
+#                print 'Weighted mean:', blob_stat[idx, 0]
+                            
+                blob_ell_pol = trail.get_ell_rad()[good_pos_idx]
+                blob_err_ell_pol = trail.get_err_ell_rad()[good_pos_idx]
+                
+                blob_stat[idx, 0] =   np.sum(blob_ell_pol * blob_err_ell_pol) / np.sum( blob_err_ell_pol )
+                
+
+            
+        except AssertionError:
+            fail_list.append(idx)
+            failcount += 1
+            continue
+    
+        blobs_used_good_domain[idx] = 1
+        
+        #trail.plot_trail(frames, rz_array = rz_array, xyi = xyi, plot_com = True, plot_shape = True, save_frames = True)
+ 
+    print 'failcount = %d ' % failcount
+
+    #blob_shape /= float(blob_shape_count) 
+    
+    if ( logger != None ):
+        logger.info('Blobs between LCFS and LS: %d' % blobs_used_good_domain.sum() )
+
+    if ( blobs_used_good_domain.any() == 0 ):
+        raise ValueError('No blobs detected between LCFS and LS')
+
+    return blob_stat[blobs_used_good_domain], fail_list
+ 
+ 
+ 
+
+
+
 def statistics_blob_sol(shotnr, blobtrails, frame_info, frames = None, good_domain = None, logger = None):
     """
-    Do blob statistics for blobs that travel through the SOL
+    Do blob statistics for blobs that travel through the SOL.
+    Return amplitude, length, velocity and shape
     """
 
     np.set_printoptions(linewidth=999999)
@@ -62,9 +156,19 @@ def statistics_blob_sol(shotnr, blobtrails, frame_info, frames = None, good_doma
             # Do not use the last position since no velocity can be computed for it.
             blob_vel[idx,:] = trail.get_velocity_com(rz_array)[good_pos_idx[:-1]].mean( axis = 0 )#[newtrail.get_frame0(),0]#.mean( axis=0 )
             blob_amps[idx]  = trail.get_amp()[good_pos_idx].mean()#[newtrail.get_frame0()]
-            blob_ell[idx,0] = trail.get_ell_rad()[good_pos_idx].mean()#[[newtrail.get_frame0()]]
-            blob_ell[idx,1] = trail.get_ell_pol()[good_pos_idx].mean()#[[newtrail.get_frame0()]]
             
+            blob_ell_rad = trail.get_ell_rad()[good_pos_idx]
+            blob_err_ell_rad = 1./trail.get_err_ell_rad()[good_pos_idx]
+            blob_ell[idx, 0] =   np.sum(blob_ell_rad * blob_err_ell_rad) / np.sum( blob_err_ell_rad )    
+ 
+            blob_ell_pol = trail.get_ell_rad()[good_pos_idx]
+            blob_err_ell_pol = trail.get_err_ell_rad()[good_pos_idx]    
+            blob_ell[idx, 1] =   np.sum(blob_ell_pol * blob_err_ell_pol) / np.sum( blob_err_ell_pol )
+
+            
+#            blob_ell[idx,0] = trail.get_ell_rad()[good_pos_idx].mean()#[[newtrail.get_frame0()]]
+#            blob_ell[idx,1] = trail.get_ell_pol()[good_pos_idx].mean()#[[newtrail.get_frame0()]] 
+ 
         except AssertionError:
             fail_list.append(idx)
             failcount += 1
@@ -151,7 +255,7 @@ def plot_blob_stat1(blob_amps, blob_ell, blob_vel, blob_shape, fail_list, shotnr
 
     if ( save == True ):
         F = plt.gcf()
-        filename = '%d/results/%d_thresh15_com_blobs_meaninsol_2.eps' % ( shotnr, shotnr )
+        filename = '%d/results/%d_thresh25_com_blobs_meaninsol_2_ttf.eps' % ( shotnr, shotnr )
         print 'Saving file %s' % filename
         F.savefig( filename )
         plt.close()
@@ -166,6 +270,7 @@ def plot_blob_stat2(blob_amps, blob_ell, blob_vel, blob_shape, fail_list, shotnr
     low_vrad_idx = np.argwhere( blob_vel[:, 0] < 100 )
     print np.size(low_vrad_idx)
 
+    idx = (blob_ell[:,0] > 0) & (blob_ell[:,0] < 2.0)
     idx = (blob_ell[:,1] > 0) & (blob_ell[:,1] < 2.0)
 
     F = plt.figure( figsize = (14,7) )
@@ -210,7 +315,7 @@ def plot_blob_stat2(blob_amps, blob_ell, blob_vel, blob_shape, fail_list, shotnr
 
     if ( save == True ):
         F = plt.gcf()
-        filename = '%d/results/%d_thresh15_com_blobs_meaninsol2_gauss_fit.eps' % ( shotnr, shotnr )
+        filename = '%d/results/%d_thresh20_com_blobs_meaninsol2_gauss_fit_20120418.eps' % ( shotnr, shotnr )
         print 'Saving file %s' % filename
         F.savefig( filename )
         plt.close() 
@@ -263,7 +368,7 @@ def plot_blob_scatter1(blob_amps, blob_ell, blob_vel, blob_shape, shotnr, fail_l
 
     if ( save == True ):
         F = plt.gcf()
-        filename = '%d/results/%d_thresh15_com_scatter_meaninsol2_gauss_fit.eps' % ( shotnr, shotnr )
+        filename = '%d/results/%d_thresh20_com_scatter_meaninsol2_gauss_fit_20120418.eps' % ( shotnr, shotnr )
         print 'Saving file %s' % filename
         F.savefig( filename )
         plt.close()

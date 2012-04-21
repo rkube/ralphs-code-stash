@@ -124,10 +124,13 @@ def set_rcparams_pres_small(myParams):
     """
     Use large axis labels and thick lines for small plots in presentations
     """
-    myParams['font.family'] = 'sans-serif'
-    myParams['text.usetex'] = False
-    myParams['axes.labelsize'] = 16
-    myParams['lines.linewidth'] = 2.0
+#    myParams['font.family'] = 'monospace'
+#    myParams['text.usetex'] = False
     myParams['font.size'] = 14
+    #myParams['axes.labelsize'] = 16
+    
+    myParams['lines.linewidth'] = 2.0
+    #myParams['font.size'] = 20
+    #myParams['legend.fontsize'] = 14
     myParams['xtick.labelsize'] = 'large'
     myParams['ytick.labelsize'] = 'large'    

@@ -71,6 +71,8 @@ class blobtrail:
         # Radial and poloidal width of the blob
         self.fwhm_ell_rad = np.zeros_like(self.amp)
         self.fwhm_ell_pol = np.zeros_like(self.amp)
+        self.fwhm_err_ell_rad = np.zeros_like(self.amp)
+        self.fwhm_err_ell_pol = np.zeros_like(self.amp)
         
         
     def track_backward(self, frames, doplots = False):
@@ -353,14 +355,16 @@ class blobtrail:
 
             self.fwhm_ell_rad[t] = p_rad[1]
             self.fwhm_ell_pol[t] = p_pol[1]
-    
+            self.fwhm_err_ell_rad[t] = error_rad
+            self.fwhm_err_ell_pol[t] = error_pol
+ 
             if ( plots == True ):
                 F = plt.figure()
                 plt.title('Gaussian fit, i_size = %d' % i_size)
                 plt.plot( X_pol, slice_pol/slice_pol.max() )
                 plt.plot( X_pol, gaussian_fun(p_pol, X_pol), label = 'width =%f, Error = %f' % (p_pol[1], error_pol) )
                 plt.legend()
-                F.savefig('1120217020/plots/pol_fit_%d.png' % t_idx )
+                F.savefig('%d/fits/pol_fit_%d.png' % (self.shotnr, t_idx ) )
 #                plt.show()
                 plt.close()
                 
@@ -439,6 +443,20 @@ class blobtrail:
         """
         return self.fwhm_ell_rad
         
+
+    def get_err_ell_pol(self):
+        """
+        Return error from length fitting
+        """
+        return self.fwhm_err_ell_pol
+        
+    def get_err_ell_rad(self):
+        """
+        Return error from length fitting
+        """
+        return self.fwhm_err_ell_rad
+
+
 
     def get_amp(self):
         """

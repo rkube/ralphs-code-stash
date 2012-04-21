@@ -51,8 +51,8 @@ def blob_tracking(shotnr, frames, frame_info, frame0 = 0, minmax = [2.0, 10.0], 
     
     # Define the events we will analyze
     event_range = np.arange( num_events )
-#    event_range = np.arange( 550, 560)
-    num_events  = np.size(event_range)
+#    event_range = np.arange( 20,25 )
+#    num_events  = np.size(event_range)
     
     # Get R,z projection, grid data
     rz_array, transform_data = make_rz_array(frame_info)
@@ -95,8 +95,9 @@ def blob_tracking(shotnr, frames, frame_info, frame0 = 0, minmax = [2.0, 10.0], 
             
 #        try:
         if ( True ):
+            print 'Computing blob width'
 #            newtrail.compute_fwhm(frames, rz_array, position = 'MAX', norm = True,  plots = True)
-            newtrail.compute_width_gaussian(frames, rz_array, position = 'MAX', i_size_max = 10, plots = True )
+            newtrail.compute_width_gaussian(frames, rz_array, position = 'MAX', i_size_max = 10, plots = False )
             
         if ( False ):
 #        except:
@@ -110,7 +111,7 @@ def blob_tracking(shotnr, frames, frame_info, frame0 = 0, minmax = [2.0, 10.0], 
             continue
             
 
-        newtrail.plot_trail(frames, rz_array = rz_array, xyi = xyi, trigger_box = trigger, sep_data = s, plot_com = True, plot_shape = True, plot_geom = True, save_frames = True)
+        #newtrail.plot_trail(frames, rz_array = rz_array, xyi = xyi, trigger_box = trigger, sep_data = s, plot_com = True, plot_shape = True, plot_geom = True, save_frames = True)
         trails.append(newtrail)
         
     return trails
