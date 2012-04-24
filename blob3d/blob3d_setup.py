@@ -29,8 +29,8 @@ class blob3d_setup:
         # Read parameters from file
         try:
             setupfile = open('%s/setup.txt' % path, 'r')            
-            lines = sfile.readlines()
-            setup = {}
+            lines = setupfile.readlines()
+            self.params = OrderedDict()
 
             for line in lines:
                 seps = line.rstrip().partition('=')
@@ -39,9 +39,11 @@ class blob3d_setup:
                 # Try to cast each value to a string first. If this fails,
                 # it must be a string
                 try:   
-                    setup[seps[0]] = float(seps[-1])
+                    #setup[seps[0]] = float(seps[-1])
+                    self.params[seps[0]] = float(seps[-1])
                 except ValueError:
-                    setup[seps[0]] = seps[-1]
+                    #setup[seps[0]] = seps[-1]
+                    self.params[seps[0]] = seps[-1]
             
         # Or, if the file does not exist, create a standard setup
         except:
