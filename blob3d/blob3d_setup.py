@@ -86,6 +86,13 @@ class blob3d_setup:
         except KeyError:
             print 'No such key: %s' % key
 
+    def __getitem__(self, key):
+        try:
+            return self.params[key]
+        except KeyError:
+            print 'No such key: %s' % key
+            
+
 
     def set_key(self, key, value):
         # Ensure value is of right type for key
@@ -98,7 +105,20 @@ class blob3d_setup:
             
         self.params[key] = value
 
-    
+
+    def __setitem__(self, key, value):
+        # Ensure value is of right type for th ekey
+        if key in self.key_string_val:
+            assert type(value) is str
+        elif key in self.key_int_val:
+            assert type(value) is int
+        elif key in self.key_float_val:
+            assert type(value) is float
+
+        self.params[key] = value 
+
+
+ 
     def read_blob3dsetup(self, path):
         try:
             sfile = open('%s/setup.txt' % path, 'r')
