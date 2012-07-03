@@ -29,8 +29,8 @@ class blob3d_setup:
         # Read parameters from file
         try:
             setupfile = open('%s/setup.txt' % path, 'r')            
-            lines = sfile.readlines()
-            setup = {}
+            lines = setupfile.readlines()
+            self.params = OrderedDict()
 
             for line in lines:
                 seps = line.rstrip().partition('=')
@@ -39,9 +39,11 @@ class blob3d_setup:
                 # Try to cast each value to a string first. If this fails,
                 # it must be a string
                 try:   
-                    setup[seps[0]] = float(seps[-1])
+                    #setup[seps[0]] = float(seps[-1])
+                    self.params[seps[0]] = float(seps[-1])
                 except ValueError:
-                    setup[seps[0]] = seps[-1]
+                    #setup[seps[0]] = seps[-1]
+                    self.params[seps[0]] = seps[-1]
             
         # Or, if the file does not exist, create a standard setup
         except:
@@ -84,6 +86,13 @@ class blob3d_setup:
         except KeyError:
             print 'No such key: %s' % key
 
+    def __getitem__(self, key):
+        try:
+            return self.params[key]
+        except KeyError:
+            print 'No such key: %s' % key
+            
+
 
     def set_key(self, key, value):
         # Ensure value is of right type for key
@@ -96,7 +105,20 @@ class blob3d_setup:
             
         self.params[key] = value
 
-    
+
+    def __setitem__(self, key, value):
+        # Ensure value is of right type for th ekey
+        if key in self.key_string_val:
+            assert type(value) is str
+        elif key in self.key_int_val:
+            assert type(value) is int
+        elif key in self.key_float_val:
+            assert type(value) is float
+
+        self.params[key] = value 
+
+
+ 
     def read_blob3dsetup(self, path):
         try:
             sfile = open('%s/setup.txt' % path, 'r')
