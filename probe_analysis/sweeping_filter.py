@@ -16,8 +16,10 @@ def sweeping_filter( probe_voltage, v_max, smooth = False ):
     if smooth == True:
         probe_voltage = probe_voltage
 
+    foo = probe_voltage > v_max
+    print '%d/%d elements filtered' % ( np.sum(np.invert(foo)), np.sum(foo) )
 
-    return probe_voltage < v_max 
+    return probe_voltage > v_max 
     
 
 
