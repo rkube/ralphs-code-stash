@@ -3,9 +3,10 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from blob_tracking.detect_peak import detect_peak_3d
-from blob_tracking.blobtrail import blobtrail
 from misc.phantom_helper import make_rz_array
+#from blob_tracking.detect_peak import detect_peak_3d
+import blobtrail 
+from detect_peak import detect_peak_3d
 from scipy.interpolate import griddata
 import cPickle as pickle
 import idlsave
@@ -51,7 +52,7 @@ def blob_tracking(shotnr, frames, frame_info, frame0 = 0, minmax = [2.0, 10.0], 
     
     # Define the events we will analyze
     event_range = np.arange( num_events )
-#    event_range = np.arange( 20,25 )
+    event_range = np.arange( 5,10 )
 #    num_events  = np.size(event_range)
     
     # Get R,z projection, grid data
@@ -71,7 +72,7 @@ def blob_tracking(shotnr, frames, frame_info, frame0 = 0, minmax = [2.0, 10.0], 
         
         print 'peak %d / %d, frame %d' % ( idx, num_events, t0)
         try:
-            newtrail = blobtrail( frames[t0 - tau_max : t0 + tau_max, :, :], event, frame0, shotnr, thresh_amp=0.7, blob_ext = 14, thresh_dist = 8., fwhm_max_idx = 18, doplots = False )
+            newtrail = blobtrail.blobtrail( frames[t0 - tau_max : t0 + tau_max, :, :], event, frame0, shotnr, thresh_amp=0.7, blob_ext = 14, thresh_dist = 8., fwhm_max_idx = 18, doplots = False )
             if ( np.size(newtrail.get_tau()) < 4 ):
                 fail_list.append(idx)
                 failcount += 1
@@ -111,7 +112,7 @@ def blob_tracking(shotnr, frames, frame_info, frame0 = 0, minmax = [2.0, 10.0], 
             continue
             
 
-        #newtrail.plot_trail(frames, rz_array = rz_array, xyi = xyi, trigger_box = trigger, sep_data = s, plot_com = True, plot_shape = True, plot_geom = True, save_frames = True)
+        newtrail.plot_trail(frames, rz_array = rz_array, xyi = xyi, trigger_box = trigger, sep_data = s, plot_com = True, plot_shape = True, plot_geom = True, save_frames = True)
         trails.append(newtrail)
         
     return trails
