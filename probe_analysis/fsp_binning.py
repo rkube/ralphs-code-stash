@@ -244,20 +244,23 @@ def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned
     kurt = np.zeros( [num_reciprocations*2 + 1, n_zbins] ) 
     fluc = np.zeros( [num_reciprocations*2 + 1, n_zbins] ) 
 
+
     # Compute the moments of the probe signal for each partial reciprocation of the probe
     for idx, interval, bin_list in zip( np.arange(len(t_intervals)), t_intervals, binned_list ):
         t_int = probe_time[ interval[0] : interval[-1] ]
         s_int = probe_signal[ interval[0] : interval[-1] ]
+        rho_int = rho_signal[ interval[0] : interval[-1] ]
         try:
             te_int = te_signal[ interval[0] : interval[-1] ]
         except:
             print 'binning_moments_2: No electron temperature available'
-        rho_int = rho_signal[ interval[0] : interval[-1] ]
 
         # Convert to density if requested:
         if ( mode == 'n' ):
             te_int = te_signal[ interval[0] : interval[-1] ]
-            s_int = s_int * np.sqrt(mi) / ( np.sqrt(2 * te_int * q) * q * probe_A )         
+            #s_int = s_int * np.sqrt(mi) / ( np.sqrt(2 * te_int * q) * q * probe_A )         
+            # Hutchinson, p.64:
+            s_int = s_int * np.sqrt(mi / (q*te_int) ) / ( 0.607 * probe_A * q)
 
         plt.figure()
         plt.subplot(211)
@@ -267,8 +270,11 @@ def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned
             plt.plot(t_int[bl], s_int[bl]  )
         plt.show()
 
+         
         mean[idx + 1, :len(bin_list)] = np.array( [s_int[bl].mean() for bl in bin_list] )
         std[idx + 1, :len(bin_list)] = np.array( [s_int[bl].std() for bl in bin_list] )
+        # std computes the RMS (see scipy documentation). So this is the relative fluctuations
+        #fluc[idx + 1, :len(bin_list)] = std[idx + 1, :len(bin_list)] / mean[idx + 1, :len(bin_list)]
         fluc[idx + 1, :len(bin_list)] = std[idx + 1, :len(bin_list)] / mean[idx + 1, :len(bin_list)]
         skewness[idx + 1, :len(bin_list)] = np.array( [ skew( s_int[bl] ) for bl in bin_list ] )
         kurt[idx + 1, :len(bin_list)] = np.array( [ kurtosis( s_int[bl] ) for bl in bin_list ] )
@@ -291,7 +297,6 @@ def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned
 
     plt.show()
     return mean, std, fluc, skewness, kurt, rho 
-
 
 
 def binning_time( probe_vertical, z_bins, time_signal, t_maxrc, t_down = 0.075, t_up = 0.05, delta_z = 1e-3, epsilon = 1e-6 ):
@@ -463,7 +468,7 @@ def binning_time_vfloat( probe_vertical, probe_voltage, z_bins, time_signal, t_m
     return  t_intervals, binned_list
 
 
-def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t_down = 0.05, t_up = 0.05, delta_r = 1e-3, epsilon = 1e-6 ):
+def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t_down = 0.05, t_up = 0.05, delta_r = 1e-3, epsilon = 1e-6, min_rc_delta = 50000 ):
     """
     Given a list of z positions for the probe return
     t_intervals:    Time indices for each in/out reciprocation of the probe
@@ -477,11 +482,10 @@ def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t
     t_up:               Time it takes the probe to move from baseline to max. reciprocation
     delta_r:            Width of spatial interval
     epsilon:            A very small number
+    min_rc_delta:       Interval in which to look for time of maximal probe reciprocation
     """
-    print 'Function asp_binning_time' 
     delta_t = time_signal[1] - time_signal[0]
     n_rbins = np.shape(r_bins)[0]
-    min_rc_delta = 120000
 
     # The time where the probe has maximum reciprocation in the plasma deviates
     # from the programmed maxima. Find these times exactly.
@@ -489,12 +493,18 @@ def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t
     # Find the time indices where the maximum probe reciprocation is programmed
     t_idx_maxrc = [ np.argwhere ( np.abs( time_signal - t ) < epsilon )[0][0] for t in t_maxrc_programmed ]
 
+#    print 'time indices where probe has programmed max rec.:', t_idx_maxrc
+#    print [ np.shape(probe_vertical[idx - min_rc_delta : idx + min_rc_delta]) for idx in t_idx_maxrc ]
+
+    print [ (idx, idx - min_rc_delta, idx + min_rc_delta) for idx in t_idx_maxrc ]
     # Now find the local minima around these indices as the probe reciprocates inwards
     probe_vertical_min = [ probe_vertical[ idx - min_rc_delta : idx + min_rc_delta ].argmin() for idx in t_idx_maxrc ]
 
     plt.figure()
     for idx in t_idx_maxrc:
         plt.plot( time_signal[ idx - min_rc_delta : idx + min_rc_delta], probe_vertical[ idx - min_rc_delta : idx + min_rc_delta ] )
+    plt.xlabel('time / s')
+    plt.ylabel('Probe plunge / m')
     plt.show()
 
     # Compute the times when maximum reciprocation occurs
@@ -512,18 +522,16 @@ def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t
 
     binned_list = []
 
-    plt.figure()
-    plt.title('Your intervals, sire!')
-    for interval in t_recip_intervals:
-        pv = probe_vertical[ interval[0] : interval[1] ]
-        ti = time_signal[ interval[0] : interval[1] ]
-        plt.plot(ti, pv)
-    plt.plot( t_maxrc, -0.02*np.ones_like(t_maxrc), 'ko')
-    plt.show()
+    #plt.figure()
+    #plt.title('Your intervals, sire!')
+    #for interval in t_recip_intervals:
+    #    pv = probe_vertical[ interval[0] : interval[1] ]
+    #    ti = time_signal[ interval[0] : interval[1] ]
+    #    plt.plot(ti, pv)
+    #plt.plot( t_maxrc, -0.02*np.ones_like(t_maxrc), 'ko')
+    #plt.show()
 
-
-
-    # Cut each probe trajectory (up, down) in sub-intervals and filter by magnitude of V
+    # Cut each probe trajectory (up, down) in sub-intervals 
     for idx, interval in enumerate( t_recip_intervals ):
         probe_vertical_interval = probe_vertical[ interval[0] : interval[-1] ]
         time_interval = time_signal[ interval[0] : interval[-1] ]
@@ -551,7 +559,7 @@ def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t
 #            plt.plot( time_interval[ bin[0] : bin[-1] ], probe_vertical_interval[ bin[0] : bin[-1] ] )
  
         binned_list.append( t_bins_full )
-        plt.show()
+#        plt.show()
 
     return  t_recip_intervals, binned_list
 
