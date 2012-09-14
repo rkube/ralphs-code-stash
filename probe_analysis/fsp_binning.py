@@ -493,10 +493,12 @@ def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t
     # Find the time indices where the maximum probe reciprocation is programmed
     t_idx_maxrc = [ np.argwhere ( np.abs( time_signal - t ) < epsilon )[0][0] for t in t_maxrc_programmed ]
 
+    print t_maxrc_programmed, t_idx_maxrc, time_signal[t_idx_maxrc[0]], time_signal[t_idx_maxrc[1]], np.size( time_signal )
+
 #    print 'time indices where probe has programmed max rec.:', t_idx_maxrc
 #    print [ np.shape(probe_vertical[idx - min_rc_delta : idx + min_rc_delta]) for idx in t_idx_maxrc ]
 
-    print [ (idx, idx - min_rc_delta, idx + min_rc_delta) for idx in t_idx_maxrc ]
+    print np.shape( probe_vertical ), t_idx_maxrc, t_idx_maxrc[0] - min_rc_delta, t_idx_maxrc[0] + min_rc_delta
     # Now find the local minima around these indices as the probe reciprocates inwards
     probe_vertical_min = [ probe_vertical[ idx - min_rc_delta : idx + min_rc_delta ].argmin() for idx in t_idx_maxrc ]
 
