@@ -289,6 +289,8 @@ def binning_acorr_two( probe_signal_1, probe_signal_2, probe_time, probe_rho, t_
     return rho_int, tau_acorr1, tau_acorr2
 
 
+
+
 def binning_acorr( probe_signal, probe_time, probe_rho, t_intervals, binned_list, min_sep = 25, tau_max = 8, threshold = 2.0, plot = True ):
     """
     Compute autocorrelation function for large amplitude fluctuations
@@ -310,16 +312,17 @@ def binning_acorr( probe_signal, probe_time, probe_rho, t_intervals, binned_list
 
     """
 
-
     num_reciprocations = len ( t_intervals ) / 2
     num_zbins = np.max( [len(bin) for bin in binned_list] )
-    delta_t = probe_time[3] - probe_time[2]
+    delta_t = probe_time[300] - probe_time[299]
     n_zbins = np.max( [len(bin) for bin in binned_list] )
 
     tau_acorr = np.zeros( [num_reciprocations*2 + 1, n_zbins] )
     rho_int = np.zeros( [num_reciprocations*2 + 1, n_zbins] )
+    tau_fwhm = np.zeros( [num_reciprocations*2 + 1, n_zbins] )
 
-    print 'dt = %10.9f' % delta_t
+    acorr_mask = np.zeros( np.shape(tau_acorr) )
+    fwhm_mask = np.zeros( np.shape(tau_acorr) )
 
     figure_number = 0
 
@@ -329,84 +332,116 @@ def binning_acorr( probe_signal, probe_time, probe_rho, t_intervals, binned_list
         s_int = probe_signal[ interval[0] : interval[-1] ]
         r_int = probe_rho   [ interval[0] : interval[-1] ]
 
-        avg_blob = np.zeros( 2*tau_max )
         for bin_idx, bl in enumerate(bin_list):
+            avg_blob = np.zeros( 2*tau_max )
             if (np.size(bl) == 0):
                 # Skip rho bins where probe does not reciprocate into
                 continue
             # Iteration over rho_bin of a single reciprocation
-            t_int_bin = t_int[bl]
-            s_int_bin = s_int[bl]
             r_int_bin = r_int[bl]
+#            print 'reciprocation %d rho = %4.3f, s_int.mean() = ' %( idx +1, r_int[bl].mean() ), s_int[bl].mean(), 's_int.std() = ', s_int[bl].std() 
+#            print 'Signal: ', s_int[bl][:5]
+            t_int_bin = t_int[bl]
+            s_int_bin = ( s_int[bl] - s_int[bl].mean() ) / s_int[bl].std()
 
-            # Normalize probe signal
-            s_int_bin = ( s_int_bin - s_int_bin.mean() )/s_int_bin.std()
+#            print 'Signal from %d to %d' % ( bl[0], bl[-1] )
+#            print 'Signal: ', s_int_bin[:5]
 
             # Locate local peaks
             max_idx = peak_detection( s_int_bin, t_int_bin, min_sep, threshold)
+            num_blobs = np.size( max_idx )
 
-            print 'reciprocation %d rho = %4.3f, max_idx = ' % (idx+1, r_int_bin.mean()),  max_idx
+#            print 'reciprocation %d rho = %4.3f, max_idx = ' % (idx+1, r_int_bin.mean()),  max_idx
             if ( plot == True ):
-                plt.figure(2)
-                plt.plot( s_int_bin, '.-' )
-                plt.plot( max_idx, s_int_bin[max_idx], 'ko')
-
                 fig1 = plt.figure(1)
-                fig1.text(0.5, 0.95, 'rho = %4.3f' % r_int_bin.mean() )
+                fig1.text(0.5, 0.95, 'rho = %4.3f, %d blobs' % (r_int_bin.mean(), num_blobs) )
+                plt.subplot(411)
+                plt.plot( t_int_bin, s_int_bin, '.-' )
+                plt.plot( t_int_bin[max_idx], s_int_bin[max_idx], 'ko')
 
             # Compute the average blob form
             for max_idx_it in max_idx:
+                avg_blob[:] = avg_blob[:] + s_int_bin[ max_idx_it - tau_max : max_idx_it + tau_max ]
                 if ( plot == True ):
-                    plt.figure(2)
-                    plt.plot( max_idx_it, s_int_bin[max_idx_it], 'rx' )
                     plt.figure(1)
-                    plt.subplot(311)
-                    plt.plot( s_int_bin[ max_idx_it - tau_max : max_idx_it + tau_max], '.' )
+                    plt.subplot(412)
+                    plt.plot( t_int_bin[ max_idx_it - tau_max : max_idx_it + tau_max ], s_int_bin[ max_idx_it - tau_max : max_idx_it + tau_max], '.' )
                     #print 'Index %d, rho: %f, value: %3.2f, tau_ac = %e' % ( max_idx_it, r_int[bl].mean(), s_int_bin_rel[max_idx_it], tau_ac[-1] )
 
+            # Normalize average blob size
+            print '%d blobs detected' % ( float(num_blobs) )
+            avg_blob[:] = avg_blob[:] / float(num_blobs)
+            np.savez('/home/rkube/tmp/fsp_avg_blob_%03d_1120711020.npz' % figure_number, avg_blob = avg_blob)
+
             # Compute autocorrelation time of the average blob
-            #acorr = correlate( s_int_bin_rel[ max_idx_it - tau_wlen : max_idx_it + tau_wlen ], s_int_bin_rel[ max_idx_it - tau_wlen : max_idx_it + tau_wlen ], tau_wlen ) 
             acorr = correlate( avg_blob, avg_blob, tau_max )
-            # The autocorrelation time is defined as the time it takes for the correlation amplitude to cross 0.5
-            tau_acorr[idx, bin_idx] = zero_crossing( np.arange(tau_max), acorr[tau_max:] - 0.5 ) * delta_t
-            old_tau_ac = (acorr[tau_max:] > 0.5).argmin() * delta_t
-            print 'Autocorrelation time. Old method: %e, new method: %e' % ( tau_acorr[idx, bin_idx], old_tau_ac)
-#            tau_acorr[idx, bin_idx] = (acorr[tau_max:] > 0.5).argmin() * delta_t
-            #tau_ac.append( (acorr[ tau_wlen :] > 0.5).argmin() * delta_t )
+            #acorr = np.correlate( avg_blob, avg_blob, 'full' )
+            #acorr = np.correlate( avg_blob, avg_blob, 'full')
+            acorr = acorr[np.size(acorr)/2 - tau_max : np.size(acorr)/2 + tau_max] / acorr.max()
+
+            # Ladida, compute le FWHM
+            try:
+                fwhm2 = zero_crossing( np.arange(tau_max), avg_blob[tau_max:] - 0.5 * avg_blob[tau_max:].max(), title='FWHM1' ) * delta_t
+                fwhm1 = zero_crossing(np.arange(tau_max), avg_blob[tau_max:0:-1], title='FWHM2' ) * delta_t
+                tau_fwhm[idx, bin_idx] = fwhm1 + fwhm2
+                print 'FWHM1 = %e, FWHM2 = %e' % ( fwhm1, fwhm2 )
+            except ValueError:
+                fwhm_mask = True
+                print 'Could not determine FWHM'
+
+            # Ladida, compute le Autocorrelation function
+            try:
+                # The autocorrelation time is defined as the time it takes for the correlation amplitude to cross 0.5
+                zero_x = zero_crossing( np.arange(tau_max), acorr[tau_max:] - 0.5, title='AC' ) 
+                print 'Zero x at %f, delta_t = %e => tau_ac = %e' % ( zero_x, delta_t, zero_x * delta_t )
+                tau_acorr[idx, bin_idx] = zero_x * delta_t
+            except ValueError:
+                print 'Could not determine autocorrelation time'
+                acorr_mask[idx, bin_idx] = True
             
             if ( plot == True ):
                 plt.figure(1)
-                plt.subplot(312)
-                plt.plot( avg_blob / float(np.size(max_idx)) )
-                plt.subplot(313)
-                plt.plot( np.arange(-tau_max, tau_max+1), acorr, '.-' )
+                plt.subplot(413)
+                plt.plot(np.arange(-tau_max, tau_max), avg_blob , '.-' )
+                try:
+                    # These might not exist
+                    plt.plot( [0, fwhm1/delta_t], [0.5*avg_blob.max(), 0.5*avg_blob.max()], 'k' )
+                    plt.plot( [-fwhm2/delta_t, 0], [0.5*avg_blob.max(), 0.5*avg_blob.max()], 'k--')
+                except:
+                    pass
+                plt.subplot(414)
+                plt.plot( np.arange(-tau_max, tau_max), acorr, '.-', label='zero at %f' % zero_x )
                 plt.grid()
+                plt.legend()
                 plt.ylim( (-1.0, 1.0) )
-                fig_filename = '../plots/1120715028_ac_blob_isat_fig%d.png' % figure_number
+                fig_filename = '../plots/ac/1120711020_ac_blob_isat_fig%d.png' % figure_number
                 fig1.savefig( fig_filename )
                 print 'saved figure to %s' % fig_filename 
                 figure_number += 1
-                plt.close(1)
-                plt.close(2)
-
-            
+                #plt.close(1)
+                plt.show() 
+            #np.savez('/home/rkube/tmp/avg_blob_120517_%d.npz' % figure_number, avg_blob = avg_blob, num_blobs = num_blobs )           
+ 
             plt.show()
         
         rho_int[ idx+1, :len(bin_list) ] = np.array( [r_int[bl].mean()  for bl in bin_list])
 
         plt.show() 
 
-    return rho_int, tau_acorr
+    tau_acorr = np.ma.MaskedArray( tau_acorr, mask = acorr_mask )
+    tau_fwhm  = np.ma.MaskedArray( tau_fwhm, mask = fwhm_mask )
 
-def binning_acorr_multiple( probe_signal_list, probe_time_list, probe_rho_list, t_intervals, binned_list, min_sep = 25, tau_max = 8, threshold = 2.0, plot = True ):
+    return rho_int, tau_acorr, tau_fwhm
+
+def binning_acorr_multiple( probe_signal_list, probe_time, probe_rho, t_intervals, binned_list, min_sep = 25, tau_max = 8, threshold = 2.0, plot = True ):
     """
     Compute autocorrelation function for large amplitude fluctuations
 
     Input:
     ============
     probe_signal:   List of probe signals (I_sat, V_float)...
-    probe_time:     List of timebases for the signals
-    probe_rho:      List of probe rho coordinates
+    probe_time:     Timebase for the signals
+    probe_rho:      Probe rho coordinate
     t_intervals:    Indices where probe is in in/out reciprocation
     binned_list:    Intervalls for rho binning
     min_sep:        Minimum separation for peak detection
@@ -419,93 +454,83 @@ def binning_acorr_multiple( probe_signal_list, probe_time_list, probe_rho_list, 
     """
 
     # Each probe signal has its timeseries, timebase, and rho list
-    assert( len(probe_signal_list) == len(probe_time_list) == len(probe_rho_list) )
     
-    
-    num_reciprocations = len ( t_intervals ) / 2
+    num_reciprocations = len( t_intervals ) / 2
     num_zbins = np.max( [len(bin) for bin in binned_list] )
     num_signals = len(probe_signal_list)
-    delta_t = probe_time_list[0][3] - probe_time_list[0][2]
+    delta_t = probe_time[3] - probe_time[2]
     n_zbins = np.max( [len(bin) for bin in binned_list] )
 
     tau_acorr = np.zeros( [num_signals, num_reciprocations*2 + 1, n_zbins] )
-    rho_int = np.zeros( [num_signals, num_reciprocations*2 + 1, n_zbins] )
-
-    print 'dt = %10.9f' % delta_t
+    rho_int = np.zeros( [num_reciprocations*2 + 1, n_zbins] )
 
     figure_number = 0
 
     for idx, interval, bin_list in zip( np.arange( num_reciprocations*2), t_intervals, binned_list ):
         # Iteration over in/out reciprocation of the probe
-        t_int_list = [probe_time  [ interval[0] : interval[-1] ] for probe_time in probe_time_list ]
+        t_int = probe_time[ interval[0] : interval[-1] ] 
         s_int_list = [probe_signal[ interval[0] : interval[-1] ] for probe_signal in probe_signal_list ]
-        r_int_list = [probe_rho   [ interval[0] : interval[-1] ] for probe_rho in probe_rho_list ]
+        r_int = probe_rho[ interval[0] : interval[-1] ] 
 
+        rho_int[idx+1, :len(bin_list) ] = np.array( [r_int[bl].mean() for bl in bin_list])
         avg_blob = np.zeros([ num_signals, 2*tau_max] )
         for bin_idx, bl in enumerate(bin_list):
             if (np.size(bl) == 0):
                 # Skip rho bins where probe does not reciprocate into
                 continue
             # Iteration over rho_bin of a single reciprocation
-            t_int_bin_list = [t_int[bl] for t_int in t_int_list ]
-            s_int_bin_list = [ (s_int[bl] - s_int[bl].mean())/s_int.std() for s_int in s_int_list ]
-            r_int_bin_list = [r_int[bl] for r_int in r_int_list ]
+            r_int_bin = r_int[bl] 
+            t_int_bin = t_int[bl]
+            s_int_bin_list = [ (s_int[bl] - s_int[bl].mean())/s_int[bl].std() for s_int in s_int_list ]
 
             # Locate local peaks
-            max_idx_list = [peak_detection( s_int_bin, t_int_bin, min_sep, threshold) for (s_int_bin, t_int_bin) in zip( s_int_bin_list, t_int_bin_list) ]
+            max_idx_list = [peak_detection( s_int_bin, t_int_bin, min_sep, threshold) for s_int_bin in s_int_bin_list  ]
 
-            print 'reciprocation %d rho = %4.3f, max_idx = ' % (idx+1, r_int_bin.mean()),  max_idx
+            print 'reciprocation %d rho = %4.3f, max_idx = ' % (idx+1, r_int_bin.mean()),  max_idx_list
             if ( plot == True ):
                 fig1 = plt.figure(1)
-                fig1.text(0.5, 0.95, 'rho_1 = %4.3f, rho_2 = %4.3f' % r_int_bin_list[0].mean(), r_int_bin_list[1].mean() )
+                fig1.text(0.5, 0.95, 'rho = %4.3f' % r_int_bin.mean() )
+                plt.subplot(4, 1, 1)
 
-                plt.figure(2)
-                for i in np.arange(1, num_signals+1):   
-                    plt.subplot(1, num_signals+1, i)
-                    plt.plot( s_int_bin, '.-' )
-                    plt.plot( max_idx, s_int_bin_list[i-1][max_idx], 'ko')
 
             # Compute the average blob form
-            for max_idx_it in max_idx:
-                if ( plot == True ):
-                    plt.figure(2)
-                    plt.plot( max_idx_it, s_int_bin[max_idx_it], 'rx' )
-                    plt.figure(1)
-                    for i in np.arange(1, num_signals+1):
-                        plt.subplot(num_signals+1, 1, i)
-                        plt.plot( s_int_bin_list[i-1][ max_idx_it - tau_max : max_idx_it + tau_max], '.' )
-                    #print 'Index %d, rho: %f, value: %3.2f, tau_ac = %e' % ( max_idx_it, r_int[bl].mean(), s_int_bin_rel[max_idx_it], tau_ac[-1] )
+            for signal in np.arange( num_signals ):
+                for max_idx_it in max_idx_list[signal]:
+                    avg_blob[ signal, :] = avg_blob[ signal, :] + s_int_bin_list[signal][ max_idx_it - tau_max : max_idx_it + tau_max ]
+                    if ( plot == True ):
+                        plt.subplot(4, 2, 3 + signal )
+                        plt.plot( s_int_bin_list[signal][ max_idx_it - tau_max : max_idx_it + tau_max], '.' )
+                if ( plot ):
+                    plt.subplot(4, 1, 1) 
+                    plt.plot( t_int_bin, s_int_bin_list[signal] )
+                    plt.plot( t_int_bin[max_idx_list[signal]], s_int_bin_list[signal][max_idx_list[signal]], 'kx')
+                avg_blob[ signal, :] = avg_blob[signal, :] / np.size(max_idx_list[signal])
 
             # Compute autocorrelation time of the average blob
             for signal in np.arange( num_signals ):
-                #acorr = correlate( s_int_bin_rel[ max_idx_it - tau_wlen : max_idx_it + tau_wlen ], s_int_bin_rel[ max_idx_it - tau_wlen : max_idx_it + tau_wlen ], tau_wlen ) 
                 acorr = correlate( avg_blob[ signal ], avg_blob[ signal ], tau_max )
                 # The autocorrelation time is defined as the time it takes for the correlation amplitude to cross 0.5
-                tau_acorr[idx, bin_idx] = zero_crossing( np.arange(tau_max), acorr[tau_max:] - 0.5 ) * delta_t
-                old_tau_ac = (acorr[tau_max:] > 0.5).argmin() * delta_t
-                print 'Autocorrelation time. Old method: %e, new method: %e' % ( tau_acorr[idx, bin_idx], old_tau_ac)
+                zero_x = zero_crossing( np.arange(tau_max), acorr[tau_max:] - 0.5 ) 
+                print 'Zero x at idx %d, delta_t = %f => tau_ac = %f' % ( zero_x, delta_t, zero_x * delta_t )
+                tau_acorr[signal, idx, bin_idx] = zero_crossing( np.arange(tau_max), acorr[tau_max:] - 0.5 ) * delta_t
+#                old_tau_ac = (acorr[tau_max:] > 0.5).argmin() * delta_t
+                print 'Autocorrelation time: %e' % ( tau_acorr[signal, idx, bin_idx])
             
             if ( plot == True ):
-                plt.figure(1)
-                plt.subplot(312)
-                plt.plot( avg_blob / float(np.size(max_idx)) )
-                plt.subplot(313)
-                plt.plot( np.arange(-tau_max, tau_max+1), acorr, '.-' )
-                plt.grid()
-                plt.ylim( (-1.0, 1.0) )
-                fig_filename = '../plots/1120715028_ac_blob_isat_fig%d.png' % figure_number
+                for signal in np.arange( num_signals ):
+                    plt.figure(1)
+                    plt.subplot(4, 2, 5 + signal)
+                    plt.plot( avg_blob[signal, :] )
+                    plt.subplot(4, 2, 7 + signal)
+                    plt.plot( np.arange(-tau_max, tau_max+1), acorr, '.-' )
+                    plt.grid()
+                    plt.ylim( (-1.0, 1.0) )
+                    fig_filename = '../plots/1120711020_ac_blob_isat_fig%d_compare.png' % figure_number
                 fig1.savefig( fig_filename )
                 print 'saved figure to %s' % fig_filename 
                 figure_number += 1
                 plt.close(1)
-                plt.close(2)
-
-            
-            plt.show()
-        
-        rho_int[ idx+1, :len(bin_list) ] = np.array( [r_int[bl].mean()  for bl in bin_list])
-
-        plt.show() 
+#                plt.close(2)
 
     return rho_int, tau_acorr
 

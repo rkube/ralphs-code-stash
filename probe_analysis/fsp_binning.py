@@ -24,7 +24,7 @@ signal_dt = lambda signal_raw, p, time : signal_raw - linfun(p, time)
 
 
 def binning_moments( probe_signal, probe_vertical, z_bins, time_signal, t_maxrc, probe_rho = None, ne = None, \
-    t_low = 0.075, t_up = 0.05, t_overlap_idx = 15000, delta_z = 3e-3, tau_max = 1e-4, num_reciprocations = 3, epsilon = 1e-6 ):
+    t_low = 0.075, t_up = 0.05, t_overlap_idx = 15000, delta_z = 3e-3, tau_max = 1e-4, num_reciprocations = 3, epsilon = 1e-6, show_plots = False ):
     """
     Compute statistical moments for ``signal`` for the part of the timeseries
     when the probe position is in the interval defined by z_bins
@@ -158,14 +158,14 @@ def binning_moments( probe_signal, probe_vertical, z_bins, time_signal, t_maxrc,
         t_lag = np.arange( -int(tau_max / delta_t), int(tau_max / delta_t) + 1) * delta_t / 1e-6
 
 
-        plt.title('Interval %d/%d' % (idx,  len(t_intervals) ) )
         for idx2, t_bin in enumerate(t_bin_triplet):
             print 'plotting timeseries %d/%d' % ( idx2, len(t_bin_triplet) )
             #print idx, t_bin, np.shape(time_signal), np.shape(probe_signal)
-            fig = plt.figure() 
-            plt.plot( time_signal[ t_bin[0] : t_bin[-1]], probe_signal[ t_bin[0]: t_bin[-1] ] )
-            fig.savefig('../plots/plot_tmp_%04d.png' % (100*idx+idx2) )
-            plt.close()
+            if show_plots:
+                fig = plt.figure() 
+                plt.plot( time_signal[ t_bin[0] : t_bin[-1]], probe_signal[ t_bin[0]: t_bin[-1] ] )
+                fig.savefig('../plots/plot_tmp_%04d.png' % (100*idx+idx2) )
+                plt.close()
 
 
 #        plt.figure()
@@ -217,7 +217,7 @@ def binning_moments( probe_signal, probe_vertical, z_bins, time_signal, t_maxrc,
 
 
 
-def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned_list, te_signal = False, mode = 'I', probe_A = 9.662781e-07  ):
+def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned_list, te_signal = False, mode = 'I', probe_A = 9.662781e-07, show_plots = False  ):
     """ 
     Compute statistical moments of the probe signal, given some binning
 
@@ -262,13 +262,14 @@ def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned
             # Hutchinson, p.64:
             s_int = s_int * np.sqrt(mi / (q*te_int) ) / ( 0.607 * probe_A * q)
 
-        plt.figure()
-        plt.subplot(211)
-        plt.plot( t_int, rho_signal[ interval[0] : interval[-1] ] )
-        plt.subplot(212)
-        for idx2, bl in enumerate(bin_list):
-            plt.plot(t_int[bl], s_int[bl]  )
-        plt.show()
+        if show_plots:
+            plt.figure()
+            plt.subplot(211)
+            plt.plot( t_int, rho_signal[ interval[0] : interval[-1] ] )
+            plt.subplot(212)
+            for idx2, bl in enumerate(bin_list):
+                plt.plot(t_int[bl], s_int[bl]  )
+            plt.show()
 
          
         mean[idx + 1, :len(bin_list)] = np.array( [s_int[bl].mean() for bl in bin_list] )
@@ -295,7 +296,8 @@ def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned
     kurt[0,:] = kurt[1:,:].mean( axis=0 )
     rho[0,:] = rho[1:,:].mean( axis=0 )
 
-    plt.show()
+    if show_plots:
+        plt.show()
     return mean, std, fluc, skewness, kurt, rho 
 
 
@@ -468,7 +470,7 @@ def binning_time_vfloat( probe_vertical, probe_voltage, z_bins, time_signal, t_m
     return  t_intervals, binned_list
 
 
-def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t_down = 0.05, t_up = 0.05, delta_r = 1e-3, epsilon = 1e-6, min_rc_delta = 50000 ):
+def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t_down = 0.05, t_up = 0.05, delta_r = 1e-3, epsilon = 1e-6, min_rc_delta = 50000, show_plots = False ):
     """
     Given a list of z positions for the probe return
     t_intervals:    Time indices for each in/out reciprocation of the probe
@@ -493,21 +495,19 @@ def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t
     # Find the time indices where the maximum probe reciprocation is programmed
     t_idx_maxrc = [ np.argwhere ( np.abs( time_signal - t ) < epsilon )[0][0] for t in t_maxrc_programmed ]
 
-    print t_maxrc_programmed, t_idx_maxrc, time_signal[t_idx_maxrc[0]], time_signal[t_idx_maxrc[1]], np.size( time_signal )
-
 #    print 'time indices where probe has programmed max rec.:', t_idx_maxrc
 #    print [ np.shape(probe_vertical[idx - min_rc_delta : idx + min_rc_delta]) for idx in t_idx_maxrc ]
 
-    print np.shape( probe_vertical ), t_idx_maxrc, t_idx_maxrc[0] - min_rc_delta, t_idx_maxrc[0] + min_rc_delta
     # Now find the local minima around these indices as the probe reciprocates inwards
     probe_vertical_min = [ probe_vertical[ idx - min_rc_delta : idx + min_rc_delta ].argmin() for idx in t_idx_maxrc ]
 
-    plt.figure()
-    for idx in t_idx_maxrc:
-        plt.plot( time_signal[ idx - min_rc_delta : idx + min_rc_delta], probe_vertical[ idx - min_rc_delta : idx + min_rc_delta ] )
-    plt.xlabel('time / s')
-    plt.ylabel('Probe plunge / m')
-    plt.show()
+    if show_plots:
+        plt.figure()
+        for idx in t_idx_maxrc:
+            plt.plot( time_signal[ idx - min_rc_delta : idx + min_rc_delta], probe_vertical[ idx - min_rc_delta : idx + min_rc_delta ] )
+        plt.xlabel('time / s')
+        plt.ylabel('Probe plunge / m')
+        plt.show()
 
     # Compute the times when maximum reciprocation occurs
     t_maxrc = [ time_signal[ fvrt_min + idx - min_rc_delta ] for fvrt_min, idx in zip( probe_vertical_min, t_idx_maxrc) ]
@@ -551,9 +551,6 @@ def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t
         #    r_bins = r_bins[:-1]
 
 #        plt.figure()
-#        plt.subplot(211)
-#        plt.plot( time_interval, probe_vertical_interval )
-#        plt.subplot(212)
 #        for idx, bin in enumerate(t_bins_full):
 #            if len(bin) == 0:
 #                continue
