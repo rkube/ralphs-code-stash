@@ -17,8 +17,10 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from scipy.interpolate import griddata
 from scipy.optimize import leastsq
-from helper_functions import tracker, fwhm, com
-from separatrix_line import surface_line
+from misc.helper_functions import tracker, fwhm, com
+from plotting.separatrix_line import surface_line
+#from helper_functions import tracker, fwhm, com
+#from separatrix_line import surface_line
 
 
 class blobtrail:
@@ -82,7 +84,7 @@ class blobtrail:
         
         if ( True ):
             self.tau_b, self.amp_b, self.xycom_b, self.xymax_b, fwhm_rad_idx_b, fwhm_pol_idx_b, self.blob_shape_b = \
-                tracker(frames[:self.tau_max,:,:], self.event, self.thresh_amp, self.thresh_dist, self.blob_ext, 'backward', plots = False, verbose = False)
+                tracker(frames[:self.tau_max,:,:], self.event, self.thresh_amp, self.thresh_dist, self.blob_ext, 'backward', plots = doplots, verbose = False)
         else:
             print 'Could not track backward'
             self.invalid_bw_tracking = True
@@ -94,7 +96,7 @@ class blobtrail:
         """
         if ( True ):
             self.tau_f, self.amp_f, self.xycom_f, self.xymax_f, fwhm_rad_idx_f, fwhm_pol_idx_f, self.blob_shape_f = \
-                tracker(frames[self.tau_max:,:,:], self.event, self.thresh_amp, self.thresh_dist, self.blob_ext, 'forward', plots = False, verbose = False)
+                tracker(frames[self.tau_max:,:,:], self.event, self.thresh_amp, self.thresh_dist, self.blob_ext, 'forward', plots = doplots, verbose = False)
         else:
             print 'Could not track forward'
             self.invalid_fw_tracking = True
@@ -114,6 +116,11 @@ class blobtrail:
         
         """
         print 'Plotting the blob event from frame %d-%d' % ( self.event[1] + self.frame0 - self.tau_b, self.event[1] + self.frame0 + self.tau_f )
+        minval = np.min( frames[ self.event[1] + self.frame0 - self.tau_b : self.event[1] + self.frame0 + self.tau_f, :, :]) 
+        maxval = np.max( frames[ self.event[1] + self.frame0 - self.tau_b : self.event[1] + self.frame0 + self.tau_f, :, :]) 
+        frames[ self.event[1] + self.frame0 - self.tau_b : self.event[1] + self.frame0 + self.tau_f, 0,0] = minval 
+        frames[ self.event[1] + self.frame0 - self.tau_b : self.event[1] + self.frame0 + self.tau_f, 0,1] = maxval
+        print 'min = %f, max = %f' % ( minval, maxval )
 
         for f_idx, tau in enumerate( np.arange( -self.tau_b, self.tau_f) ):
             plt.figure()
@@ -123,16 +130,16 @@ class blobtrail:
             
             try:    # Try plotting everythin in machine coordinates. If it fails, draw in pixels
                 zi = griddata(rz_array.reshape(64*64, 2), frames[self.event[1] + self.frame0 + tau, :, :].reshape( 64*64 ), xyi.reshape( 64*64, 2 ), method='linear' )
-                zi[0] = 5.0#np.max(frames)
-                zi[1] = 5.0#np.max(frames)
+#                zi[0] = 5.0#np.max(frames)
+#                zi[1] = 5.0#np.max(frames)
                 plt.contour(xyi[:,:,0], xyi[:,:,1], zi.reshape(64,64), 32, linewidths = 0.5, colors = 'k')
-                plt.contourf(xyi[:,:,0], xyi[:,:,1], zi.reshape(64,64), 32, cmap = plt.cm.hot)
+                plt.contourf(xyi[:,:,0], xyi[:,:,1], zi.reshape(64,64), 32, cmap = plt.cm.hot, levels=np.linspace(0.0,maxval,32))
 
             except:
                 plt.contour (frames[ self.event[1] + self.frame0 + tau, :, :], 32, linewidths=0.5, colors='k')
-                plt.contourf(frames[ self.event[1] + self.frame0 + tau, :, :], 32, cmap = plt.cm.hot, levels=np.linspace(0.0,3.5,32))
+                plt.contourf(frames[ self.event[1] + self.frame0 + tau, :, :], 32, cmap = plt.cm.hot, levels=np.linspace(0.0,maxval,32))
 
-            plt.colorbar(ticks=np.arange(0.0, 10., 0.5), format='%3.1f')
+            plt.colorbar(ticks=np.arange(0.0, 3.5, 0.5), format='%3.1f')
     
 
             if ( plot_com == True ):
@@ -140,7 +147,7 @@ class blobtrail:
                 try:
                     if ( plot_shape == False ):
                         plt.plot( xyi[ self.xycom[:f_idx+1, 0].astype('int'), self.xycom[:f_idx+1,1].astype('int'), 0], \
-                            xyi[ self.xycom[:f_idx+1, 0].astype('int'), self.xycom[:f_idx+1,1].astype('int'), 1], '-bs')
+                            xyi[ self.xycom[:f_idx+1, 0].astype('int'), self.xycom[:f_idx+1,1].astype('int'), 1], '-ws')
                     
                     elif ( plot_shape == True ):
                         frame_xerr = self.fwhm_ell_rad[:f_idx+1]
@@ -149,7 +156,7 @@ class blobtrail:
                         frame_yerr[:-1] = 0.
                         plt.errorbar( xyi[self.xycom[:f_idx+1, 0].astype('int'), self.xycom[:f_idx+1,1].astype('int'), 0], \
                             xyi[self.xycom[:f_idx+1, 0].astype('int'), self.xycom[:f_idx+1,1].astype('int'), 1], \
-                            xerr = frame_xerr, yerr = frame_yerr, linestyle = 'None', marker = 's')
+                            xerr = frame_xerr, yerr = frame_yerr, ecolor='w', linestyle = 'None', mfc='white', mec='green', marker = 's')
 
                     # Set the coordinates for plotting the text field
                     text_x, text_y = 86.2, -6.
@@ -166,10 +173,10 @@ class blobtrail:
                 
             if ( plot_max == True ):
                 try:
-                    plt.plot( xyi[self.xymax[:f_idx+1, 0], self.xymax[:f_idx+1, 1], 0], xyi[self.xymax[:f_idx+1, 0], self.xymax[:f_idx+1, 1], 1], '-.go')
+                    plt.plot( xyi[self.xymax[:f_idx+1, 0], self.xymax[:f_idx+1, 1], 0], xyi[self.xymax[:f_idx+1, 0], self.xymax[:f_idx+1, 1], 1], '-.wo')
                     text_x, text_y = 86.2, -6.
                 except TypeError:
-                    plt.plot(self.xymax[:f_idx+1, 1], self.xymax[:f_idx+1, 0], '-.go')
+                    plt.plot(self.xymax[:f_idx+1, 1], self.xymax[:f_idx+1, 0], '-.wo')
                     text_x, text_y = 5., 2.
                     
                 if ( tau < self.tau_f-1 ):
@@ -177,8 +184,7 @@ class blobtrail:
                         (self.get_velocity_max(rz_array)[f_idx,0], self.get_velocity_max(rz_array)[f_idx,1] ) , \
                         fontdict = dict(size = 16., color='white', weight='bold' ) )
             if ( plot_geom == True ):
-                #try:
-                if ( True ):
+                try:
                     # Get the position of the pixels for the separatrix and limiter
                     separatrix_pxs  = surface_line( sep_data['rmid'].reshape(64,64) > sep_data['rmid_sepx'], mode='max' )
                     limiter_pxs  = surface_line( sep_data['rmid'].reshape(64,64) < sep_data['rmid_lim'], mode='min' )
@@ -204,14 +210,12 @@ class blobtrail:
                     lim_y = [xyi[i, limiter_pxs[i], 1] for i in np.arange(64) ]
                     plt.plot( lim_x, lim_y, 'w-.', linewidth=4)
             
-                #except:
-                #    print 'Error plotting geometry :('
-
-
+                except:
+                    print 'Error plotting geometry :('
 
             if ( save_frames == True ):
                 F = plt.gcf()
-                F.savefig('%d/frames/frame_%05d.png' % (self.shotnr, self.event[1] + self.frame0 + tau) )
+                F.savefig('%d/frames/frame_%05d.eps' % (self.shotnr, self.event[1] + self.frame0 + tau) )
                 plt.close()
 
         plt.show()
@@ -364,7 +368,7 @@ class blobtrail:
                 plt.plot( X_pol, slice_pol/slice_pol.max() )
                 plt.plot( X_pol, gaussian_fun(p_pol, X_pol), label = 'width =%f, Error = %f' % (p_pol[1], error_pol) )
                 plt.legend()
-                F.savefig('%d/fits/pol_fit_%d.png' % (self.shotnr, t_idx ) )
+                F.savefig('%d/fits/pol_fit_%d.eps' % (self.shotnr, t_idx ) )
 #                plt.show()
                 plt.close()
                 
@@ -388,7 +392,7 @@ class blobtrail:
         if ( rz_array == None ):
             return self.xycom
             
-        return rz_array[ self.xymax[:,0].astype('int'), self.xymax[:,1].astype('int'), :]
+        return rz_array[ self.xycom[:,0].astype('int'), self.xycom[:,1].astype('int'), :]
         
         
     def get_trail_max(self, rz_array = None):
@@ -400,7 +404,7 @@ class blobtrail:
             return self.xymax
         
         # Remember xycom[:,1] is the radial (X) index which corresponds to R
-        return rz_array[ self.xycom[:,0].astype('int'), self.xycom[:,1].astype('int'), :]
+        return rz_array[ self.xymax[:,0].astype('int'), self.xymax[:,1].astype('int'), :]
             
             
     def get_velocity_max(self, rz_array = None):

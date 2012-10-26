@@ -128,6 +128,7 @@ def tracker(frames, event, thresh_amp, thresh_dis, blob_ext, direction='forward'
         print 'thresh_amp = ', thresh_amp
         print 'thresh_dis = ', thresh_dis
         print 'blob_ext = ', blob_ext
+        print 'plots = ', plots
     
     assert ( direction in ['forward', 'backward'] )
     assert ( blob_ext % 2 == 0 )
@@ -243,23 +244,23 @@ def tracker(frames, event, thresh_amp, thresh_dis, blob_ext, direction='forward'
     return tau, amp, xycom, xymax, fwhm_rad_idx, fwhm_pol_idx, blob
 
 
-def find_sol_pixels(shotnr, frame_info = None, rz_array = None):
+def find_sol_pixels(shotnr, frame_info = None, rz_array = None, path = '/Users/ralph/source/blob_tracking'):
     """
     Returns the indices of the pixels in between the separatrix and the LCFS.    
     """
     
-    s = idlsave.read('test_data/separatrix.sav', verbose = False)
+    s = idlsave.read('%s/test_data/separatrix.sav' % ( path ), verbose = False)
     
     gap_idx_mask = (s['rmid'].reshape(64,64) > s['rmid_sepx']) & (s['rmid'].reshape(64,64) < s['rmid_lim'])
                 
     return np.argwhere(gap_idx_mask)
     
     
-def find_sol_mask(shotnr, frame_info = None, rz_array = None ):
+def find_sol_mask(shotnr, frame_info = None, rz_array = None, path = '/Users/ralph/source/blob_tracking' ):
     """
     Returns a mask for the pixels in between the separatrix and the LCFS.
     """
-    s = idlsave.read('test_data/separatrix.sav', verbose = False)
+    s = idlsave.read('%s/test_data/separatrix.sav' % ( path ), verbose = False)
     
     return (s['rmid'].reshape(64,64) > s['rmid_sepx']) & (s['rmid'].reshape(64,64) < s['rmid_lim'])
     

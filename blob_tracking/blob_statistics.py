@@ -5,8 +5,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from misc.phantom_helper import make_rz_array
+from misc.helper_functions import blob_in_sol
 from scipy.signal import correlate
-from helper_functions import blob_in_sol
+
 
 """
 Convenient scripts that look at the statistics of blob trails from a show.
