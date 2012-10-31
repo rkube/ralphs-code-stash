@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from misc.correlate import correlate, fwhm_estimate
 import MDSplus as mds
 from scipy.interpolate import interp1d
-from scipy.stats import skew, kurtosis
+from scipy.stats.mstats import skew as mskew, kurtosis as mkurtosis
 from scipy.optimize import leastsq
 
 
@@ -151,8 +151,8 @@ def binning_moments( probe_signal, probe_vertical, z_bins, time_signal, t_maxrc,
         print 'Computing moments'
         std[idx + 1, :len(t_bin_triplet)]  = np.array( [ signal_dt( probe_signal[t_bin[0] : t_bin[-1]] , lf_list[idx], time_signal[t_bin[0] : t_bin[-1]] ).std() for t_bin in t_bin_triplet ] )
         fluc[idx + 1, :len(t_bin_triplet)] = std[idx+1, :len(t_bin_triplet)] / mean[idx+1, :len(t_bin_triplet)]
-        skewness[idx + 1, :len(t_bin_triplet)] = np.array( [ skew( signal_dt( probe_signal[t_bin[0] : t_bin[-1]] , lf_list[idx], time_signal[t_bin[0] : t_bin[-1]] ) ) for t_bin in t_bin_triplet ] )
-        kurt[idx + 1, :len(t_bin_triplet)] = np.array( [ kurtosis( signal_dt( probe_signal[t_bin[0] : t_bin[-1]] , lf_list[idx], time_signal[t_bin[0] : t_bin[-1]] ) ) for t_bin in t_bin_triplet ] )
+        skewness[idx + 1, :len(t_bin_triplet)] = np.array( [ mskew( signal_dt( probe_signal[t_bin[0] : t_bin[-1]] , lf_list[idx], time_signal[t_bin[0] : t_bin[-1]] ) ) for t_bin in t_bin_triplet ] )
+        kurt[idx + 1, :len(t_bin_triplet)] = np.array( [ mkurtosis( signal_dt( probe_signal[t_bin[0] : t_bin[-1]] , lf_list[idx], time_signal[t_bin[0] : t_bin[-1]] ), fisher=False ) for t_bin in t_bin_triplet ] )
 
        
         t_lag = np.arange( -int(tau_max / delta_t), int(tau_max / delta_t) + 1) * delta_t / 1e-6
@@ -277,8 +277,8 @@ def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned
         # std computes the RMS (see scipy documentation). So this is the relative fluctuations
         #fluc[idx + 1, :len(bin_list)] = std[idx + 1, :len(bin_list)] / mean[idx + 1, :len(bin_list)]
         fluc[idx + 1, :len(bin_list)] = std[idx + 1, :len(bin_list)] / mean[idx + 1, :len(bin_list)]
-        skewness[idx + 1, :len(bin_list)] = np.array( [ skew( s_int[bl] ) for bl in bin_list ] )
-        kurt[idx + 1, :len(bin_list)] = np.array( [ kurtosis( s_int[bl] ) for bl in bin_list ] )
+        skewness[idx + 1, :len(bin_list)] = np.array( [ mskew( s_int[bl] ) for bl in bin_list ] )
+        kurt[idx + 1, :len(bin_list)] = np.array( [ mkurtosis( s_int[bl], fisher=False ) for bl in bin_list ] )
         rho[idx + 1, :len(bin_list)] = np.array( [rho_int[bl].mean() for bl in bin_list] )
 
     # Convert to masked arrays. Tested with ASP only
@@ -470,15 +470,15 @@ def binning_time_vfloat( probe_vertical, probe_voltage, z_bins, time_signal, t_m
     return  t_intervals, binned_list
 
 
-def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t_down = 0.05, t_up = 0.05, delta_r = 1e-3, epsilon = 1e-6, min_rc_delta = 50000, show_plots = False ):
+def binning_time_asp( probe_position, r_bins, timebase, t_maxrc_programmed, t_down = 0.05, t_up = 0.05, delta_r = 1e-3, epsilon = 1e-6, min_rc_delta = 50000, show_plots = False ):
     """
     Given a list of z positions for the probe return
     t_intervals:    Time indices for each in/out reciprocation of the probe
 
     Parameters:
-    probe_horizontal:   Horizontal (r) position of the probe
+    probe_position:     Horizontal (r) position of the probe
     r_bins:             List of probe positions for which the time intervals are determined
-    time_signal:        Time signal of the probe
+    timebase:        Timebase of the probe
     t_maxrc_programmed: Time when maximum probe reciprocation is programmed
     t_down:             Time it takes the probe to move from max. reciprocation to baseline
     t_up:               Time it takes the probe to move from baseline to max. reciprocation
@@ -486,63 +486,63 @@ def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t
     epsilon:            A very small number
     min_rc_delta:       Interval in which to look for time of maximal probe reciprocation
     """
-    delta_t = time_signal[1] - time_signal[0]
+    delta_t = timebase[1] - timebase[0]
     n_rbins = np.shape(r_bins)[0]
 
     # The time where the probe has maximum reciprocation in the plasma deviates
     # from the programmed maxima. Find these times exactly.
 
     # Find the time indices where the maximum probe reciprocation is programmed
-    t_idx_maxrc = [ np.argwhere ( np.abs( time_signal - t ) < epsilon )[0][0] for t in t_maxrc_programmed ]
+    t_idx_maxrc = [ np.argwhere ( np.abs( timebase - t ) < epsilon )[0][0] for t in t_maxrc_programmed ]
 
 #    print 'time indices where probe has programmed max rec.:', t_idx_maxrc
-#    print [ np.shape(probe_vertical[idx - min_rc_delta : idx + min_rc_delta]) for idx in t_idx_maxrc ]
+#    print [ np.shape(probe_position[idx - min_rc_delta : idx + min_rc_delta]) for idx in t_idx_maxrc ]
 
     # Now find the local minima around these indices as the probe reciprocates inwards
-    probe_vertical_min = [ probe_vertical[ idx - min_rc_delta : idx + min_rc_delta ].argmin() for idx in t_idx_maxrc ]
+    probe_position_min = [ probe_position[ idx - min_rc_delta : idx + min_rc_delta ].argmin() for idx in t_idx_maxrc ]
 
     if show_plots:
         plt.figure()
         for idx in t_idx_maxrc:
-            plt.plot( time_signal[ idx - min_rc_delta : idx + min_rc_delta], probe_vertical[ idx - min_rc_delta : idx + min_rc_delta ] )
+            plt.plot( timebase[ idx - min_rc_delta : idx + min_rc_delta], probe_position[ idx - min_rc_delta : idx + min_rc_delta ] )
         plt.xlabel('time / s')
         plt.ylabel('Probe plunge / m')
         plt.show()
 
     # Compute the times when maximum reciprocation occurs
-    t_maxrc = [ time_signal[ fvrt_min + idx - min_rc_delta ] for fvrt_min, idx in zip( probe_vertical_min, t_idx_maxrc) ]
+    t_maxrc = [ timebase[ fvrt_min + idx - min_rc_delta ] for fvrt_min, idx in zip( probe_position_min, t_idx_maxrc) ]
 
     # Now split the time array in intervals where the probe is reciprocating in and
     # out of the plasma
 
     # Find the indices for when the probe is reciprocating into and out of the plasma
-    t_recip_intervals_full = [ np.squeeze( np.argwhere((time_signal > (t - t_down)) & (time_signal < t )) ) for t in t_maxrc] \
-        + [ np.squeeze( np.argwhere((time_signal > t ) & ( time_signal < t + t_up )) ) for t in t_maxrc]
+    t_recip_intervals_full = [ np.squeeze( np.argwhere((timebase > (t - t_down)) & (timebase < t )) ) for t in t_maxrc] \
+        + [ np.squeeze( np.argwhere((timebase > t ) & ( timebase < t + t_up )) ) for t in t_maxrc]
     
     t_recip_intervals = [ (t_int[0], t_int[-1]) for t_int in t_recip_intervals_full ]
     t_recip_intervals_full = []
 
     binned_list = []
 
-    #plt.figure()
-    #plt.title('Your intervals, sire!')
-    #for interval in t_recip_intervals:
-    #    pv = probe_vertical[ interval[0] : interval[1] ]
-    #    ti = time_signal[ interval[0] : interval[1] ]
-    #    plt.plot(ti, pv)
-    #plt.plot( t_maxrc, -0.02*np.ones_like(t_maxrc), 'ko')
-    #plt.show()
+    if show_plots:
+        plt.figure()
+        plt.title('Your intervals, sire!')
+        for interval in t_recip_intervals:
+            pv = probe_position[ interval[0] : interval[1] ]
+            ti = timebase[ interval[0] : interval[1] ]
+            plt.plot(ti, pv)
+        plt.plot( t_maxrc, -0.02*np.ones_like(t_maxrc), 'ko')
+        plt.show()
 
     # Cut each probe trajectory (up, down) in sub-intervals 
     for idx, interval in enumerate( t_recip_intervals ):
-        probe_vertical_interval = probe_vertical[ interval[0] : interval[-1] ]
-        time_interval = time_signal[ interval[0] : interval[-1] ]
+        probe_position_interval = probe_position[ interval[0] : interval[-1] ]
+        time_interval = timebase[ interval[0] : interval[-1] ]
 
         # Find time indices corresponding to each interval [z - delta_z : z + delta_z]
-        t_bins_full = [ np.squeeze(np.argwhere( np.squeeze(( probe_vertical_interval > upper) & ( probe_vertical_interval < lower)  )) )for upper, lower in zip( r_bins-delta_r, r_bins+delta_r ) ]
+        t_bins_full = [ np.squeeze(np.argwhere( np.squeeze(( probe_position_interval > upper) & ( probe_position_interval < lower)  )) )for upper, lower in zip( r_bins-delta_r, r_bins+delta_r ) ]
         #print len(r_bins)
         #print [ (upper, lower) for upper, lower in zip( r_bins - delta_r, r_bins + delta_r ) ]
-
         #print t_bins_full
 
         # Remove empty bins where the probe does not reciprocate into
@@ -550,15 +550,16 @@ def binning_time_asp( probe_vertical, r_bins, time_signal, t_maxrc_programmed, t
             t_bins_full.pop()
         #    r_bins = r_bins[:-1]
 
-#        plt.figure()
-#        for idx, bin in enumerate(t_bins_full):
-#            if len(bin) == 0:
-#                continue
-#            #print idx, bin
-#            plt.plot( time_interval[ bin[0] : bin[-1] ], probe_vertical_interval[ bin[0] : bin[-1] ] )
+        if show_plots:
+            plt.figure()
+            for idx, bin in enumerate(t_bins_full):
+                if len(bin) == 0:
+                    continue
+                #print idx, bin
+                plt.plot( time_interval[ bin[0] : bin[-1] ], probe_position_interval[ bin[0] : bin[-1] ] )
  
         binned_list.append( t_bins_full )
-#        plt.show()
+        plt.show()
 
     return  t_recip_intervals, binned_list
 
