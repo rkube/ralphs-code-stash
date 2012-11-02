@@ -77,10 +77,10 @@ def set_rcparams_article_full_macos(myParams):
     print 'Figure resolution: %d dpi' % fig_dpi
 
     myParams['font.family'] = 'sans-serif'
-    myParams['font.size'] = 30
+    myParams['font.size'] = 12
     myParams['axes.linewidth'] = 1
-    myParams['axes.labelsize'] = 30
-    myParams['legend.fontsize'] = 22
+    myParams['axes.labelsize'] = 12
+    myParams['legend.fontsize'] = 10
     myParams['lines.linewidth'] = 2
     myParams['lines.markersize'] = 6
     myParams['figure.dpi'] = 300
