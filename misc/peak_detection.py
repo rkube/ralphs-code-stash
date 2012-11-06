@@ -47,7 +47,7 @@ def detect_peaks_1d( timeseries, timebase, delta_peak, threshold ):
     # In this case, return no peaks
     try:
         max_values = max_values[ :num_big_ones ]
-    except ValueError:
+    except:
         print 'detect_peaks_1d: No peaks in the unmasked part of the array.'
         return np.array([])
        
