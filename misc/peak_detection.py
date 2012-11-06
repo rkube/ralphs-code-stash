@@ -45,6 +45,7 @@ def detect_peaks_1d( timeseries, timebase, delta_peak, threshold ):
     # Number of peaks exceeding threshold
     num_big_ones = np.sum( timeseries > threshold )
     # Cut off fluctuations not exceeding the threshold
+    
     max_values = max_values[ :num_big_ones ]
     # Eliminate values exceeding the threshold within delta_peak of another
 

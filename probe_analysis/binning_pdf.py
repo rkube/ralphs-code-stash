@@ -408,14 +408,15 @@ def binning_acorr( probe_signal, timebase, probe_rho, t_intervals, binned_list, 
 
 
 
-def binning_avg_blob(probe_signal, timebase, probe_rho, t_intervals, binned_list, shotnr = 0, min_sep=25, tau_max=8, threshold=2.0, plot=True):
+def binning_avg_blob(probe_signal, timebase, probe_R, probe_rho, t_intervals, binned_list, shotnr = 0, min_sep=25, tau_max=8, threshold=2.0, plot=True, verbose=False):
     """
     Compute average blob shape for each position of probe reciprocation
 
     Input:
     ==============
-    probe_signal:       Isat signal
+    probe_signal:       Unnormalized Isat signal (This will be automatically normalized for each radial bin)
     timebase:           Timebase for the isat signal
+    probe_R:            Radial coordinate of the probe
     probe_rho:          Radial position of the probe
     t_intervals:        Indices where probe is in in/out reciprocation
     binned_list:        Intervalls for rho binning
@@ -441,15 +442,14 @@ def binning_avg_blob(probe_signal, timebase, probe_rho, t_intervals, binned_list
 
     # Compute the average blob shape for each rho bin
     #avg_blob, axis0: [rho, num_blobs, avg_blob[0], avg_blob[1], avg_blob[2], ...] 
-    print [len(bl) for bl in binned_list]
-    print 'number of rho bins:', np.size(binned_list[0][0])
-    avg_blob = np.zeros( [len(binned_list[0]), 2 + 2*tau_max+1])
+    avg_blob = np.zeros( [len(binned_list[0]), 3 + 2*tau_max+1])
 
     for idx, interval, bin_list in zip( np.arange( num_reciprocations*2), t_intervals, binned_list ):
         # Iteration over in/out reciprocation of the probe
         t_int = timebase  [ interval[0] : interval[-1] ] 
         s_int = probe_signal[ interval[0] : interval[-1] ]
-        r_int = probe_rho   [ interval[0] : interval[-1] ]
+        R_int = probe_R   [ interval[0] : interval[-1] ]
+        rho_int = probe_rho   [ interval[0] : interval[-1] ]
 
         for bin_idx, bl in enumerate(bin_list):
             #avg_blob = np.zeros( 2*tau_max+1 )
@@ -457,29 +457,33 @@ def binning_avg_blob(probe_signal, timebase, probe_rho, t_intervals, binned_list
                 # Skip rho bins where probe does not reciprocate into
                 continue
             # Iteration over rho_bin of a single reciprocation
-            r_int_bin = r_int[bl]
+            R_int_bin = R_int[bl]
+            rho_int_bin = rho_int[bl]
             t_int_bin = t_int[bl]
             s_int_bin = ( s_int[bl] - s_int[bl].mean() ) / s_int[bl].std()
 
             # Locate local peaks
             max_idx = peak_detection( s_int_bin, t_int_bin, min_sep, threshold)
-            avg_blob[bin_idx, 0] = r_int_bin.mean()
-            avg_blob[bin_idx,1] = np.size(max_idx)
-
+            avg_blob[bin_idx, 0] = R_int_bin.mean()
+            avg_blob[bin_idx, 1] = rho_int_bin.mean()
+            avg_blob[bin_idx, 2] = avg_blob[bin_idx,2] + np.size(max_idx)
 
             for max_idx_it in max_idx:
-                avg_blob[bin_idx, 2:] = avg_blob[bin_idx, 2:] + s_int_bin[max_idx_it-tau_max:max_idx_it+tau_max+1]
+                avg_blob[bin_idx, 3:] = avg_blob[bin_idx, 3:] + s_int_bin[max_idx_it-tau_max:max_idx_it+tau_max+1]
     
-            print 'idx:', idx, ' r_int:', r_int_bin.mean()
             if plot:
                 fig = plt.figure()
                 ax =fig.add_subplot(111)
                 ax.plot(x_int, avg_blob)
-                ax.set_title('rho=%4.3fm: %d blobs' % (r_int_bin.mean(), num_blobs))
-                filename = '../plots/111208/%d/%d_%d_r_%4.3f_avg_blob_pin0.png' % (shotnr, shotnr, idx, r_int_bin.mean())
+                ax.set_title('R=%4.3fm: %d blobs' % (R_int_bin.mean(), num_blobs))
+                filename = '../plots/111208/%d/%d_%d_r_%4.3f_avg_blob_pin0.png' % (shotnr, shotnr, idx, R_int_bin.mean())
                 print 'Saving to %s' % filename
                 fig.savefig(filename)
                   
+
+    if verbose:
+        for r_idx in np.arange( np.shape(avg_blob)[0] ): 
+            print 'R=%4.3f: %d blobs' % ( avg_blob[r_idx,0], avg_blob[r_idx,2])
 
     return avg_blob
 
