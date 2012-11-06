@@ -41,12 +41,17 @@ def detect_peaks_1d( timeseries, timebase, delta_peak, threshold ):
         timeseries = ma.MaskedArray( timeseries )
     # Sort time series by magnitude. Use fill_value to sort masked values lowest
     max_values = ( timeseries.argsort( fill_value = -1.0) )[::-1]
-
+    print 'max_values=', max_values
     # Number of peaks exceeding threshold
     num_big_ones = np.sum( timeseries > threshold )
-    # Cut off fluctuations not exceeding the threshold
-    
-    max_values = max_values[ :num_big_ones ]
+    # Cut off fluctuations not exceeding the threshold. This fails, if the whole array is masked out.
+    # In this case, return no peaks
+    try:
+        max_values = max_values[ :num_big_ones ]
+    except ValueError:
+        print 'detect_peaks_1d: No peaks in the unmasked part of the array.'
+        return np.array([])
+       
     # Eliminate values exceeding the threshold within delta_peak of another
 
     for idx, mv in enumerate(max_values):
