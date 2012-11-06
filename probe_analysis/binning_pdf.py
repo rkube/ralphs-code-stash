@@ -256,31 +256,6 @@ def binning_acorr_two( probe_signal_1, probe_signal_2, probe_time, probe_rho, t_
             plt.show()
                     
 
-
-#            for max_idx_it in np.arange( tau_wlen, np.size(s_int_bin) - tau_wlen-1):
-#                # If this point is a local maximum and this point is larger than 2.5
-#                if ( (s_int_bin_rel[max_idx_it] > s_int_bin_rel[max_idx_it+1 : max_idx_it+wmax_len]).all() and (s_int_bin_rel[max_idx_it] > s_int_bin_rel[max_idx_it-wmax_len : max_idx_it-1]).all() and s_int_bin_rel[max_idx_it] > 2.5):
-#                    #blob_idx.append( max_idx_it )
-#                    n_blobs += 1
-#                    avg_blob[:] += s_int_bin_rel[ max_idx_it - tau_wlen : max_idx_it + tau_wlen ]
-#                    # Compute autocorrelation
-#                    acorr = correlate( s_int_bin_rel[ max_idx_it - tau_wlen : max_idx_it + tau_wlen ], s_int_bin_rel[ max_idx_it - tau_wlen : max_idx_it + tau_wlen ], tau_wlen ) 
-#                    # Compute autocorrelation time for the blob event
-#                    tau_ac.append( ( acorr[ tau_wlen : ] > 0.5 ).argmin() * delta_t )
-#                    # Plotting, printing, etc.
-#                    if ( plot == True ):
-#                        plt.subplot(313)
-#                        plt.plot( np.arange( -tau_wlen, tau_wlen +1 ) * delta_t, acorr )
-#                        plt.subplot(311)
-#                        plt.plot( s_int_bin_rel[ max_idx_it - tau_wlen : max_idx_it + tau_wlen ], '.' )
-#                        print 'Index %d, rho: %f, value: %3.2f, tau_ac = %e' % ( max_idx_it, r_int[bl].mean(), s_int_bin_rel[max_idx_it], tau_ac[-1] )
-#            if ( plot == True ):
-#                print avg_blob, float(n_blobs)
-#                plt.subplot(312)
-#                plt.plot( avg_blob / float(n_blobs) )
-
-        
-#            plt.show() 
         rho_int[ idx+1, :len(bin_list) ] = np.array( [r_int[bl].mean()  for bl in bin_list])
         tau_acorr1[ idx+1, :len(tau_ac) ] = np.array( tau_ac )
 
@@ -290,8 +265,7 @@ def binning_acorr_two( probe_signal_1, probe_signal_2, probe_time, probe_rho, t_
 
 
 
-
-def binning_acorr( probe_signal, probe_time, probe_rho, t_intervals, binned_list, min_sep = 25, tau_max = 8, threshold = 2.0, plot = True ):
+def binning_acorr( probe_signal, timebase, probe_rho, t_intervals, binned_list, min_sep = 25, tau_max = 8, threshold = 2.0, plot = True ):
     """
     Compute autocorrelation function for large amplitude fluctuations
 
@@ -314,7 +288,7 @@ def binning_acorr( probe_signal, probe_time, probe_rho, t_intervals, binned_list
 
     num_reciprocations = len ( t_intervals ) / 2
     num_zbins = np.max( [len(bin) for bin in binned_list] )
-    delta_t = probe_time[300] - probe_time[299]
+    delta_t = timebase[300] - timebase[299]
     n_zbins = np.max( [len(bin) for bin in binned_list] )
 
     tau_acorr = np.zeros( [num_reciprocations*2 + 1, n_zbins] )
@@ -328,7 +302,7 @@ def binning_acorr( probe_signal, probe_time, probe_rho, t_intervals, binned_list
 
     for idx, interval, bin_list in zip( np.arange( num_reciprocations*2), t_intervals, binned_list ):
         # Iteration over in/out reciprocation of the probe
-        t_int = probe_time  [ interval[0] : interval[-1] ] 
+        t_int = timebase  [ interval[0] : interval[-1] ] 
         s_int = probe_signal[ interval[0] : interval[-1] ]
         r_int = probe_rho   [ interval[0] : interval[-1] ]
 
@@ -420,7 +394,6 @@ def binning_acorr( probe_signal, probe_time, probe_rho, t_intervals, binned_list
                 figure_number += 1
                 #plt.close(1)
                 plt.show() 
-            #np.savez('/home/rkube/tmp/avg_blob_120517_%d.npz' % figure_number, avg_blob = avg_blob, num_blobs = num_blobs )           
  
             plt.show()
         
@@ -432,6 +405,85 @@ def binning_acorr( probe_signal, probe_time, probe_rho, t_intervals, binned_list
     tau_fwhm  = np.ma.MaskedArray( tau_fwhm, mask = fwhm_mask )
 
     return rho_int, tau_acorr, tau_fwhm
+
+
+
+def binning_avg_blob(probe_signal, timebase, probe_rho, t_intervals, binned_list, shotnr = 0, min_sep=25, tau_max=8, threshold=2.0, plot=True):
+    """
+    Compute average blob shape for each position of probe reciprocation
+
+    Input:
+    ==============
+    probe_signal:       Isat signal
+    timebase:           Timebase for the isat signal
+    probe_rho:          Radial position of the probe
+    t_intervals:        Indices where probe is in in/out reciprocation
+    binned_list:        Intervalls for rho binning
+    min_sep:            Minimum separation for peak detection
+    tau_max:            Maximum autocorrelation time
+    threshold:          Signal threshold for blob detection
+    plot:               Show plots of what we are doing?
+
+    Output:
+    =========
+
+    """
+
+    num_reciprocations = len ( t_intervals ) / 2
+    num_zbins = np.max( [len(bin) for bin in binned_list] )
+    delta_t = timebase[300] - timebase[299]
+    n_zbins = np.max( [len(bin) for bin in binned_list] )
+
+    rho_int = np.zeros( [num_reciprocations*2 + 1, n_zbins] )
+
+    figure_number = 0
+    x_int = np.arange(-tau_max, tau_max+1)
+
+    # Compute the average blob shape for each rho bin
+    #avg_blob, axis0: [rho, num_blobs, avg_blob[0], avg_blob[1], avg_blob[2], ...] 
+    print [len(bl) for bl in binned_list]
+    print 'number of rho bins:', np.size(binned_list[0][0])
+    avg_blob = np.zeros( [len(binned_list[0]), 2 + 2*tau_max+1])
+
+    for idx, interval, bin_list in zip( np.arange( num_reciprocations*2), t_intervals, binned_list ):
+        # Iteration over in/out reciprocation of the probe
+        t_int = timebase  [ interval[0] : interval[-1] ] 
+        s_int = probe_signal[ interval[0] : interval[-1] ]
+        r_int = probe_rho   [ interval[0] : interval[-1] ]
+
+        for bin_idx, bl in enumerate(bin_list):
+            #avg_blob = np.zeros( 2*tau_max+1 )
+            if (np.size(bl) == 0):
+                # Skip rho bins where probe does not reciprocate into
+                continue
+            # Iteration over rho_bin of a single reciprocation
+            r_int_bin = r_int[bl]
+            t_int_bin = t_int[bl]
+            s_int_bin = ( s_int[bl] - s_int[bl].mean() ) / s_int[bl].std()
+
+            # Locate local peaks
+            max_idx = peak_detection( s_int_bin, t_int_bin, min_sep, threshold)
+            avg_blob[bin_idx, 0] = r_int_bin.mean()
+            avg_blob[bin_idx,1] = np.size(max_idx)
+
+
+            for max_idx_it in max_idx:
+                avg_blob[bin_idx, 2:] = avg_blob[bin_idx, 2:] + s_int_bin[max_idx_it-tau_max:max_idx_it+tau_max+1]
+    
+            print 'idx:', idx, ' r_int:', r_int_bin.mean()
+            if plot:
+                fig = plt.figure()
+                ax =fig.add_subplot(111)
+                ax.plot(x_int, avg_blob)
+                ax.set_title('rho=%4.3fm: %d blobs' % (r_int_bin.mean(), num_blobs))
+                filename = '../plots/111208/%d/%d_%d_r_%4.3f_avg_blob_pin0.png' % (shotnr, shotnr, idx, r_int_bin.mean())
+                print 'Saving to %s' % filename
+                fig.savefig(filename)
+                  
+
+    return avg_blob
+
+
 
 def binning_acorr_multiple( probe_signal_list, probe_time, probe_rho, t_intervals, binned_list, min_sep = 25, tau_max = 8, threshold = 2.0, plot = True ):
     """
@@ -533,56 +585,6 @@ def binning_acorr_multiple( probe_signal_list, probe_time, probe_rho, t_interval
 #                plt.close(2)
 
     return rho_int, tau_acorr
-
-
-
-
-
-def peak_acorr( probe_signal, probe_time, probe_rho, tau_wlen = 25, wmax_len = 8, plot = True ):
-    """
-    * Normalize probe_signal to its mean
-    * Idenitify largest peaks separated by wmax_len
-    * Build average blob form
-    * Compute autocorrelation function of average blob form
-
-    Input:
-    ============
-    probe_signal:   Probe signal (I_sat... )
-    probe_time:     Timebase of the probe signal
-    probe_rho:      Radial signal
-    tau_wlen:       Window length for the correlation analysis  
-    wmax_len:       Minimum time lag between neighbouring peaks
-    plot:           Show debug plots that show what is going on
-
-    Output:
-    ===========
-    """
-
-    # Normalize probe signal
-    probe_signal_rel = probe_signal / probe_signal.mean() 
-    
-    # Identify largest peaks separated by wmax_len
-    max_values = np.argsort( probe_signal_rel )[::-1]
-    num_big_ones = np.sum( probe_signal_rel > 2.5 )
-    max_values = max_values[:num_big_ones]
-   
-
-    peak_list = find_separated_peaks( probe_signal_rel, wmax_len )
-
-    # Eliminate peaks within wmax_len around one another, keeping the largest peaks only 
-
-    for mv in max_values:
-        if mv == -1:
-            # Item was discarded in previous iteration, skip
-            continue
-
-        # Identify peaks close by
-        close_ones = np.squeeze( np.argwhere( np.abs(mv - max_values) < wmax_len ) )
-
-
-    # Build average blob form
-
-    # compute Autocorrelation function
 
 
 
