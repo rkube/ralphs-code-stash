@@ -17,7 +17,7 @@ Set of functions for peak detection in time series
 
 
 
-def detect_peaks_1d( timeseries, timebase, delta_peak, threshold ):
+def detect_peaks_1d( timeseries, timebase, delta_peak, threshold, peak_width = 1 ):
     """
     detect_peaks_1d
 
@@ -29,7 +29,7 @@ def detect_peaks_1d( timeseries, timebase, delta_peak, threshold ):
     timebase:       Timebase of the timeseries, np.ndarray
     delta_peak:     Minimum separation of peaks, integer
     threshold:      Peaks have to exceed this value, integer
-    
+    peak_width:     Number of neighbouring elements a peak has to larger than
 
     Output:
     ========
@@ -60,7 +60,7 @@ def detect_peaks_1d( timeseries, timebase, delta_peak, threshold ):
         # Discard current peak if it is not a local maximum
         # Using < > operators on masked elements yields a float for which the | operator is undefined.
         try: 
-            if ( (timeseries[mv-1] > timeseries[mv]) | (timeseries[mv+1] > timeseries[mv]) ):
+            if ( np.logical_or(timeseries[mv-peak_width:mv] > timeseries[mv], timeseries[mv+peak_width:mv+peak_width+1] > timeseries[mv]).all()):
                 max_values[idx] = -1    
         except TypeError:
             pass # Do nothing, one of the neighbouring values is masked. Assume this is a local maximum
