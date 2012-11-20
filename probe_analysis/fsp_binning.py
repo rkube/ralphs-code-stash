@@ -6,15 +6,11 @@ import numpy as np
 import numpy.ma as ma
 import matplotlib.pyplot as plt
 from misc.correlate import correlate, fwhm_estimate
-import MDSplus as mds
+from misc.peak_detection import detect_peaks_1d
 from scipy.interpolate import interp1d
 from scipy.stats.mstats import skew as mskew, kurtosis as mkurtosis
 from scipy.optimize import leastsq
 
-
-"""
-Plot and analyze radial profiles from reciprocating scanning probes
-"""
 
 # Linear function for detrending and error function
 linfun = lambda p, x : p[0]*x+p[1]
@@ -23,201 +19,57 @@ errfun = lambda p, x, y :  y - linfun(p, x)
 signal_dt = lambda signal_raw, p, time : signal_raw - linfun(p, time)
 
 
-def binning_moments( probe_signal, probe_vertical, z_bins, time_signal, t_maxrc, probe_rho = None, ne = None, \
-    t_low = 0.075, t_up = 0.05, t_overlap_idx = 15000, delta_z = 3e-3, tau_max = 1e-4, num_reciprocations = 3, epsilon = 1e-6, show_plots = False ):
+def binning_moments_sweep(probe_signal, probe_vsweep, probe_rho, timebase, interval_size = 400, show_plots = False):
     """
-    Compute statistical moments for ``signal`` for the part of the timeseries
-    when the probe position is in the interval defined by z_bins
-
-    probe_signal:       Timeseries of the probe signal
-    probe_vertical:     Timeseries of vertical probe position
-    z_bins:             List of probe position on which the moments are to be computed
-    time_signal:        Time signal for probe data
-    t_maxrc:            Times where the maximum reciprocation is programmed to happen
-    probe_rho:          Probe position mapped to rho at outboard-midplane
-    ne:                 Particle density
-    t_top:              times at which the probe is programmed to have max. reciprocation
-    t_low = 0.075       Length of time interval before maximum probe reciprocation
-    t_up = 0.05         Length of time interval after maximum probe reciprocation
-    t_overlap_idx = 1e+4    Interval after maximum we include in each time interval, in index points
-    delta_z = 3e-3      Width of a reciprocation bin
-    tau_max             Maximum correlation time
-    num_reciprocations  Number of probe reciprocations. Usually 3
+    Compute statistical moments from parts of the time series where we assume the probe to be in
+    Isat mode. Use an interval of numpoints points around each minima of a voltage sweep.
+    Input:
+        probe_signal:       Timeseries of the probe (Current)
+        probe_vsweep:       Sweeping voltage of the probe
+        timebase:           Timebase of the time series
+        interval_size:      Size of the intervals for which to compute moments
+        show_plots:         Show debugging ploots
+    Output:
     """
 
+    # Detect points where vsweep is minimal and the probe is in isat. Use -probe_vsweep because the routine detects maxima.
+    sweep_peak_list = detect_peaks_1d((-1.0 * probe_vsweep)/(-1.0 * probe_vsweep).max(), timebase, 100, 0.97, peak_width=10)
 
-    delta_t = time_signal[1] - time_signal[0]
-
-    n_zbins = np.shape(z_bins)[0]
-
-    # List for linear fits used for detrending the signals
-    lf_list = []
-
-    # Allocate memory for the return values
-    ne_mean  = np.zeros( [num_reciprocations*2 + 1 ] )
-    mean = np.zeros( [num_reciprocations*2 + 1, n_zbins] ) 
-    rho = np.zeros( [num_reciprocations*2 + 1, n_zbins] ) 
-    std = np.zeros( [num_reciprocations*2 + 1, n_zbins] ) 
-    skewness = np.zeros( [num_reciprocations*2 + 1, n_zbins] ) 
-    kurt = np.zeros( [num_reciprocations*2 + 1, n_zbins] ) 
-    fluc = np.zeros( [num_reciprocations*2 + 1, n_zbins] ) 
-    acor = np.zeros( [num_reciprocations*2 + 1, n_zbins] )
-
-    # The time where the probe has maximum reciprocation in the plasma deviates
-    # from the programmed maxima. Find these times exactly.
-
-    # Find the time indices where the maximum probe reciprocation is programmed
-    t_idx_maxrc = [ np.argwhere ( np.abs( time_signal - t ) < epsilon )[0][0] for t in t_maxrc ]
-
-    # Now find the local maxima around these indices
-    probe_vertical_max = [ probe_vertical[ idx - 50000 : idx + 50000 ].argmax() for idx in t_idx_maxrc ]
-    # Compute the times when maximum reciprocation occurs
-    t_maxrc = [ time_signal[ fvrt_max + idx - 50000 ] for fvrt_max, idx in zip( probe_vertical_max, t_idx_maxrc) ]
-
-    # Now split the time array in intervals where the probe is reciprocating in and
-    # out of the plasma
-
-    # Find the indices for when the probe is reciprocating into and out of the plasma
-    t_intervals_full = [ np.squeeze( np.argwhere((time_signal > (t - t_low)) & (time_signal < t )) ) for t in t_maxrc] \
-        + [ np.squeeze( np.argwhere((time_signal > t ) & ( time_signal < t + t_up )) ) for t in t_maxrc]
+    n_sweeps = np.size(sweep_peak_list) 
+    i2 = int(round(interval_size/2))
+    mean = np.zeros(n_sweeps)
+    fluc = np.zeros(n_sweeps)
+    skewness = np.zeros(n_sweeps)
+    kurtosis = np.zeros(n_sweeps)
+    rho = np.zeros(n_sweeps)
+    t_mom = timebase[sweep_peak_list]
     
-    t_intervals = [ (t_int[0], t_int[-1]) for t_int in t_intervals_full ]
-    t_intervals_full = []
+    # Iterate over the minima for the sweeps, compute moments
+    if show_plots:
+        fig1 = plt.figure()
+        fig2 = plt.figure()
+        ax_max = fig1.add_subplot(111)
+        ax_ts = fig2.add_subplot(111) 
 
-    # For each half reciprocation of the probe, compute now the statistics of the
-    # probe signal for the subintervals in z_bins 
+    for peak_idx, peak in enumerate(sweep_peak_list):
+        if show_plots:
+            ax_ts.plot( timebase[peak-i2:peak+i2], probe_signal[peak-i2:peak+i2], 'k')
 
-    for interval, idx in zip( t_intervals, np.arange( len(t_intervals) ) ):
-    
-        print 'Interval %d/%d' % ( idx, len(t_intervals) )
-   
-        # Cut out the interval we are working 
-        probe_vertical_interval = probe_vertical[ interval[0] : interval[-1] ]
-        time_interval = time_signal[ interval[0] : interval[-1] ]
-        # And store the index offset accompanied by cutting out the signal
-        abs_offset = interval[0]
+        mean[peak_idx] = probe_signal[peak-i2:peak+i2].mean()
+        fluc[peak_idx] = probe_signal[peak-i2:peak+i2].std() / mean[peak_idx]
+        skewness[peak_idx] = mskew(probe_signal[peak-i2:peak+i2])
+        kurtosis[peak_idx] = mkurtosis(probe_signal[peak-i2:peak+i2])
+        rho[peak_idx] = probe_rho[peak-i2:peak+i2].mean()
 
-        # Create bins where the probe is in a given spatial position
-        t_bins = [np.squeeze(np.argwhere( np.squeeze(( probe_vertical_interval > upper) & ( probe_vertical_interval < lower)  )) )for upper, lower in zip( z_bins-delta_z, z_bins+delta_z ) ]
-
-        # Remove empty spatial bins where the probe does not reciprocate into
-        while( np.size(t_bins[-1]) < 1 ):
-            t_bins.pop()
-            z_bins = z_bins[:-1]
-
-        # Compute triplets containing the indices  (t_start, t_center_, t_end) for each
-        # z_bin
-
-        t_bin_triplet = [ np.array( [t_bin[0] + abs_offset, np.abs( probe_vertical[t_bin] - z_bin ).argmin() + t_bin[0] + abs_offset , t_bin[-1] + abs_offset] ) for t_bin, z_bin in zip(t_bins, z_bins)]
-
-        # Replace the t_start for the first z_bin and t_end for the last z_bin with t_overlap
-        # If the probe is going into ( out of ) the SOL, clip ( extend ) the first bin
-        # and extend ( clip ) the last time bin to incorporate an overlap where the
-        # probe reverses its direction
-        if ( ( probe_vertical[ interval[-1] ] - probe_vertical[ interval[0] ] ) > 0 ):
-            t_bin_triplet[0][0] -= t_overlap_idx
-            t_bin_triplet[-1][-1] += t_overlap_idx
-    
-        elif ( ( probe_vertical[ interval[-1] ] - probe_vertical[ interval[0] ] ) < 0 ):
-            t_bin_triplet[0][-1] += t_overlap_idx
-            t_bin_triplet[-1][0] -= t_overlap_idx
-
-        # Compute the mean values of signal from the original signal, not the detrended one
-        mean[idx + 1, :len(t_bin_triplet)] = np.array( [ (probe_signal[t_bin[0] : t_bin[-1]]).mean() for t_bin in t_bin_triplet ] )
-        
-        # Compute rho, fail silently
-        try:
-            rho[idx + 1, :len(t_bin_triplet)]  = np.array( [ (probe_rho[t_bin[0] : t_bin[-1]]).mean() for t_bin in t_bin_triplet ] )
-        except:
-            rho[idx + 1, :len(t_bin_triplet)] = -1.0
-            print 'Could not compute rho'
-
-        # Compute ne, fail silently
-        try:
-            ne_mean[idx + 1] = ne[ interval[0] : interval[-1] ].mean()
-        except:
-            ne_mean[idx + 1] = -1.0
-            print 'Could not compute ne'
+    if show_plots:
+        ax_max.plot(timebase, probe_vsweep)
+        ax_max.plot(timebase[sweep_peak_list], probe_vsweep[sweep_peak_list], 'ko')
+        plt.show()
 
 
-        # Compute trends in the probe signal 
-        p0 = [0., 0.]
-        for t_bin in t_bin_triplet:
-            p, success = leastsq( errfun, p0, args = (time_signal[ t_bin[0] : t_bin[-1]], probe_signal[ t_bin[0] : t_bin[-1] ]), maxfev = 5000 )
-            lf_list.append(p)
+    return mean, fluc, skewness, kurtosis, rho, t_mom
 
-
-        # Compute moments of the time series in each z_bin from the detrended signals
-        print 'Computing moments'
-        std[idx + 1, :len(t_bin_triplet)]  = np.array( [ signal_dt( probe_signal[t_bin[0] : t_bin[-1]] , lf_list[idx], time_signal[t_bin[0] : t_bin[-1]] ).std() for t_bin in t_bin_triplet ] )
-        fluc[idx + 1, :len(t_bin_triplet)] = std[idx+1, :len(t_bin_triplet)] / mean[idx+1, :len(t_bin_triplet)]
-        skewness[idx + 1, :len(t_bin_triplet)] = np.array( [ mskew( signal_dt( probe_signal[t_bin[0] : t_bin[-1]] , lf_list[idx], time_signal[t_bin[0] : t_bin[-1]] ) ) for t_bin in t_bin_triplet ] )
-        kurt[idx + 1, :len(t_bin_triplet)] = np.array( [ mkurtosis( signal_dt( probe_signal[t_bin[0] : t_bin[-1]] , lf_list[idx], time_signal[t_bin[0] : t_bin[-1]] ), fisher=False ) for t_bin in t_bin_triplet ] )
-
-       
-        t_lag = np.arange( -int(tau_max / delta_t), int(tau_max / delta_t) + 1) * delta_t / 1e-6
-
-
-        for idx2, t_bin in enumerate(t_bin_triplet):
-            print 'plotting timeseries %d/%d' % ( idx2, len(t_bin_triplet) )
-            #print idx, t_bin, np.shape(time_signal), np.shape(probe_signal)
-            if show_plots:
-                fig = plt.figure() 
-                plt.plot( time_signal[ t_bin[0] : t_bin[-1]], probe_signal[ t_bin[0]: t_bin[-1] ] )
-                fig.savefig('../plots/plot_tmp_%04d.png' % (100*idx+idx2) )
-                plt.close()
-
-
-#        plt.figure()
-#        plt.title('Autocorrelation functions') 
-#        # Compute autocorrelation function and autocorr. time for each z_bin
-#        for idx2, t_bin in enumerate(t_bin_triplet):
-#            print 'Computing correlations, bin %d/%d' % ( idx2, len(t_bin_triplet) )
-#
-#            ac = correlate( probe_signal[t_bin[0] : t_bin[-1]], probe_signal[ t_bin[0] : t_bin[-1] ], int(tau_max / delta_t)) 
-#            ac_dt = correlate( signal_dt( probe_signal[t_bin[0] : t_bin[-1]] , lf_list[idx2], time_signal[t_bin[0] : t_bin[-1]] ), signal_dt( probe_signal[t_bin[0] : t_bin[-1]] , lf_list[idx2], time_signal[t_bin[0] : t_bin[-1]] ),   int(tau_max / delta_t) )
-#
-#            n, t_corr = fwhm_estimate( ac_dt, delta_t )
-#
-#
-#            if ( (idx2+ 2 > 0 ) and (idx2 + 2 < 6) ):
-#                plt.subplot(6,2,idx2*2 + 1)
-#                plt.title('I_sat')
-#                plt.plot( time_signal[ t_bin[0] : t_bin[-1] ], probe_signal[t_bin[0] : t_bin[-1] ])
-#    
-#                plt.plot( time_signal[ t_bin[0] : t_bin[-1] ], signal_dt( probe_signal[t_bin[0] : t_bin[-1]] , lf_list[idx2], time_signal[t_bin[0] : t_bin[-1]] ) )
-#                plt.subplot(6,2,idx2*2+2)
-#                plt.title('AC, t = %4.2f' % time_signal[t_bin[1]] ) 
-#                plt.plot(t_lag,  ac )
-#
-#                plt.plot( t_lag[n[0] : n[1]], ac_dt[n[0]:n[1]], 'r', label = 't_corr = %f' % (t_corr))
-#                plt.plot(t_lag,  ac_dt )
-#    
-#                plt.xlabel('time / mus')
-#                plt.legend()
-#        
-#            acor[idx+1, idx2] = t_corr
-#
-
-    # Average over all reciprocations
-
-    mean[0,:] = mean[1:,:].mean(axis=0)
-    std[0,:] = std[1:,:].mean(axis=0)
-    fluc[0,:] = fluc[1:,:].mean(axis=0)
-    skewness[0,:] = skewness[1:,:].mean(axis=0)
-    kurt[0,:] = kurt[1:,:].mean(axis=0)
-    acor[0,:] = acor[1:,:].mean(axis=0)
-
-    # Which doesn't make sense for rho and ne
-    rho[0, :] = -1.0
-    ne_mean[0] = -1.0
-    
-
-    return ne, rho, mean, std, fluc, skewness, kurt, acor
-
-
-
-def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned_list, te_signal = False, mode = 'I', probe_A = 9.662781e-07, show_plots = False  ):
+def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned_list, te_signal = False, mode = 'I', probe_A = 9.662781e-07, show_plots = False, return_numel = False):
     """ 
     Compute statistical moments of the probe signal, given some binning
 
@@ -243,6 +95,8 @@ def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned
     skewness = np.zeros( [num_reciprocations*2 + 1, n_zbins] ) 
     kurt = np.zeros( [num_reciprocations*2 + 1, n_zbins] ) 
     fluc = np.zeros( [num_reciprocations*2 + 1, n_zbins] ) 
+    if return_numel:    
+        numel = np.zeros( [num_reciprocations*2 + 1, n_zbins] ) 
 
 
     # Compute the moments of the probe signal for each partial reciprocation of the probe
@@ -269,9 +123,20 @@ def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned
             plt.subplot(212)
             for idx2, bl in enumerate(bin_list):
                 plt.plot(t_int[bl], s_int[bl]  )
-            plt.show()
 
-         
+        #for blist in bin_list:
+        #    rho_f = rho_int[blist].mean()
+        #    try:
+        #        numel = np.size(s_int[blist].data) - np.sum(s_int[blist].mask)
+        #    except: 
+        #        numel = np.size(s_int[blist].data)
+        #    print 'Bin around %f with %d items' % ( rho_f, numel)
+        if return_numel: 
+            try:
+                numel[idx+1, :len(bin_list)] = np.array([np.size(s_int[bl].data) - np.sum(s_int[bl].mask) for bl in bin_list])
+            except AttributeError:
+                numel[idx+1, :len(bin_list)] = np.array([np.size(s_int[bl].data) for bl in bin_list])
+ 
         mean[idx + 1, :len(bin_list)] = np.array( [s_int[bl].mean() for bl in bin_list] )
         std[idx + 1, :len(bin_list)] = np.array( [s_int[bl].std() for bl in bin_list] )
         # std computes the RMS (see scipy documentation). So this is the relative fluctuations
@@ -280,6 +145,9 @@ def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned
         skewness[idx + 1, :len(bin_list)] = np.array( [ mskew( s_int[bl] ) for bl in bin_list ] )
         kurt[idx + 1, :len(bin_list)] = np.array( [ mkurtosis( s_int[bl], fisher=False ) for bl in bin_list ] )
         rho[idx + 1, :len(bin_list)] = np.array( [rho_int[bl].mean() for bl in bin_list] )
+
+    if show_plots:
+        plt.show()
 
     # Convert to masked arrays. Tested with ASP only
     mean = ma.MaskedArray( mean, mask = np.isnan(mean) )
@@ -298,80 +166,9 @@ def binning_moments_2( probe_signal, rho_signal, probe_time, t_intervals, binned
 
     if show_plots:
         plt.show()
+    if return_numel:
+        return mean, std, fluc, skewness, kurt, rho, numel
     return mean, std, fluc, skewness, kurt, rho 
-
-
-def binning_time( probe_vertical, z_bins, time_signal, t_maxrc, t_down = 0.075, t_up = 0.05, delta_z = 1e-3, epsilon = 1e-6 ):
-    """
-    Given a list of z positions for the probe return
-    t_intervals:    Time indices for each in/out reciprocation of the probe
-
-    Parameters:
-    probe_vertical:     Vertical(Z) position of the probe
-    z_bins:             List of probe positions for which the time intervals are determined
-    time_signal:        Time signal of the probe
-    t_down:             Time it takes the probe to move from max. reciprocation to baseline
-    t_up:               Time it takes the probe to move from baseline to max. reciprocation
-    delta_z:            Width of spatial interval
-    epsilon:            A very small number
-    """
-    print 'Function binning_time' 
-    delta_t = time_signal[1] - time_signal[0]
-    n_zbins = np.shape(z_bins)[0]
-
-    print z_bins - delta_z, z_bins + delta_z
-
-    # The time where the probe has maximum reciprocation in the plasma deviates
-    # from the programmed maxima. Find these times exactly.
-
-    # Find the time indices where the maximum probe reciprocation is programmed
-    t_idx_maxrc = [ np.argwhere ( np.abs( time_signal - t ) < epsilon )[0][0] for t in t_maxrc ]
-
-    # Now find the local maxima around these indices
-    probe_vertical_max = [ probe_vertical[ idx - 50000 : idx + 50000 ].argmax() for idx in t_idx_maxrc ]
-    # Compute the times when maximum reciprocation occurs
-    t_maxrc = [ time_signal[ fvrt_max + idx - 50000 ] for fvrt_max, idx in zip( probe_vertical_max, t_idx_maxrc) ]
-
-    # Now split the time array in intervals where the probe is reciprocating in and
-    # out of the plasma
-
-    # Find the indices for when the probe is reciprocating into and out of the plasma
-    t_recip_intervals_full = [ np.squeeze( np.argwhere((time_signal > (t - t_down)) & (time_signal < t )) ) for t in t_maxrc] \
-        + [ np.squeeze( np.argwhere((time_signal > t ) & ( time_signal < t + t_up )) ) for t in t_maxrc]
-    
-    t_recip_intervals = [ (t_int[0], t_int[-1]) for t_int in t_recip_intervals_full ]
-    t_recip_intervals_full = []
-
-    binned_list = []
-
-    # Cut each probe trajectory (up, down) in sub-intervals and filter by magnitude of V
-    for idx, interval in enumerate( t_recip_intervals ):
-        probe_vertical_interval = probe_vertical[ interval[0] : interval[-1] ]
-        time_interval = time_signal[ interval[0] : interval[-1] ]
-
-        # Find time indices corresponding to each interval [z - delta_z : z + delta_z]
-        t_bins_full = [np.squeeze(np.argwhere( np.squeeze(( probe_vertical_interval > upper) & ( probe_vertical_interval < lower)  )) )for upper, lower in zip( z_bins-delta_z, z_bins+delta_z ) ]
-
-        # Remove empty bins where the probe does not reciprocate into
-        while( np.size(t_bins_full[-1]) < 1 ):
-            t_bins_full.pop()
-            z_bins = z_bins[:-1]
-
-        #plt.figure()
-        #plt.subplot(211)
-        #plt.plot( time_interval, probe_vertical_interval )
-        #plt.subplot(212)
-        #for idx, bin in enumerate(t_bins_full):
-        #    if len(bin) == 0:
-        #        continue
-        #    print idx, bin
-        #    plt.plot( time_signal[ bin[0] : bin[-1] ], probe_vertical_interval[ bin[0] : bin[-1] ] )
-
-        binned_list.append( t_bins_full )
-        #plt.show()
-
-    return  t_recip_intervals, binned_list
-
 
 
 
@@ -460,9 +257,6 @@ def binning_time_vfloat( probe_vertical, probe_voltage, z_bins, time_signal, t_m
             print idx, bin
             plt.plot( time_signal[ bin[0] : bin[-1] ], probe_vertical[ bin[0] : bin[-1] ], 'k' )
 #            plt.plot( time_signal[ bin[0] : bin[-1] ], probe_voltage[ bin[0] : bin[-1] ] )
-
-
-
         binned_list.append( v_bins_float )
 
         plt.show()
@@ -472,7 +266,8 @@ def binning_time_vfloat( probe_vertical, probe_voltage, z_bins, time_signal, t_m
 
 def binning_time_asp( probe_position, r_bins, timebase, t_maxrc_programmed, t_down = 0.05, t_up = 0.05, delta_r = 1e-3, epsilon = 1e-6, min_rc_delta = 50000, show_plots = False ):
     """
-    Given a list of z positions for the probe return
+    Given a list of R or rho positions for the probe return. 
+    Use this routine of the probe's coordinate is minimal when fully plunged into the plasma. I.e. R or rho.
     t_intervals:    Time indices for each in/out reciprocation of the probe
 
     Parameters:
@@ -494,10 +289,6 @@ def binning_time_asp( probe_position, r_bins, timebase, t_maxrc_programmed, t_do
 
     # Find the time indices where the maximum probe reciprocation is programmed
     t_idx_maxrc = [ np.argwhere ( np.abs( timebase - t ) < epsilon )[0][0] for t in t_maxrc_programmed ]
-
-#    print 'time indices where probe has programmed max rec.:', t_idx_maxrc
-#    print [ np.shape(probe_position[idx - min_rc_delta : idx + min_rc_delta]) for idx in t_idx_maxrc ]
-
     # Now find the local minima around these indices as the probe reciprocates inwards
     probe_position_min = [ probe_position[ idx - min_rc_delta : idx + min_rc_delta ].argmin() for idx in t_idx_maxrc ]
 
@@ -564,4 +355,96 @@ def binning_time_asp( probe_position, r_bins, timebase, t_maxrc_programmed, t_do
     return  t_recip_intervals, binned_list
 
 
+def binning_time_fsp( probe_position, z_bins, timebase, t_maxrc_programmed, t_down = 0.05, t_up = 0.05, delta_z = 1e-3, epsilon = 1e-6, max_rc_delta = 50000, show_plots = False ):
+    """
+    Use this routine of the probe's coordinate is minimal when fully plunged into the plasma. I.e. R or rho.
+    t_intervals:    Time indices for each in/out reciprocation of the probe
+
+    Parameters:
+    probe_position:     Horizontal (r) position of the probe
+    z_bins:             List of probe positions for which the time intervals are determined
+    timebase:        Timebase of the probe
+    t_maxrc_programmed: Time when maximum probe reciprocation is programmed
+    t_down:             Time it takes the probe to move from max. reciprocation to baseline
+    t_up:               Time it takes the probe to move from baseline to max. reciprocation
+    delta_z:            Width of spatial interval
+    epsilon:            A very small number
+    max_rc_delta:       Interval in which to look for time of maximal probe reciprocation
+    """
+    delta_t = timebase[1] - timebase[0]
+    n_zbins = np.shape(z_bins)[0]
+
+    # The time where the probe has maximum reciprocation in the plasma deviates
+    # from the programmed maxima. Find these times exactly.
+
+    # Find the time indices where the maximum probe reciprocation is programmed
+    t_idx_maxrc = [ np.argwhere ( np.abs( timebase - t ) < epsilon )[0][0] for t in t_maxrc_programmed ]
+
+#    print 'time indices where probe has programmed max rec.:', t_idx_maxrc
+#    print [ np.shape(probe_position[idx - max_rc_delta : idx + max_rc_delta]) for idx in t_idx_maxrc ]
+
+    # Now find the local maxima around these indices as the probe reciprocates inwards
+    probe_position_max = [ probe_position[ idx - max_rc_delta : idx + max_rc_delta ].argmax() for idx in t_idx_maxrc ]
+
+    if show_plots:
+        plt.figure()
+        for idx in t_idx_maxrc:
+            plt.plot( timebase[ idx - max_rc_delta : idx + max_rc_delta], probe_position[ idx - max_rc_delta : idx + max_rc_delta ] )
+        plt.xlabel('time / s')
+        plt.ylabel('Probe plunge / m')
+        plt.show()
+
+    # Compute the times when maximum reciprocation occurs
+    t_maxrc = [ timebase[ fvrt_min + idx - max_rc_delta ] for fvrt_min, idx in zip( probe_position_max, t_idx_maxrc) ]
+
+    # Now split the time array in intervals where the probe is reciprocating in and
+    # out of the plasma
+
+    # Find the indices for when the probe is reciprocating into and out of the plasma
+    t_recip_intervals_full = [ np.squeeze( np.argwhere((timebase > (t - t_down)) & (timebase < t )) ) for t in t_maxrc] \
+        + [ np.squeeze( np.argwhere((timebase > t ) & ( timebase < t + t_up )) ) for t in t_maxrc]
+    
+    t_recip_intervals = [ (t_int[0], t_int[-1]) for t_int in t_recip_intervals_full ]
+    t_recip_intervals_full = []
+
+    binned_list = []
+
+    if show_plots:
+        plt.figure()
+        plt.title('Your intervals, sire!')
+        for interval in t_recip_intervals:
+            pv = probe_position[ interval[0] : interval[1] ]
+            ti = timebase[ interval[0] : interval[1] ]
+            plt.plot(ti, pv)
+        plt.plot( t_maxrc, -0.02*np.ones_like(t_maxrc), 'ko')
+        plt.show()
+
+    # Cut each probe trajectory (up, down) in sub-intervals 
+    for idx, interval in enumerate( t_recip_intervals ):
+        probe_position_interval = probe_position[ interval[0] : interval[-1] ]
+        time_interval = timebase[ interval[0] : interval[-1] ]
+
+        # Find time indices corresponding to each interval [z - delta_z : z + delta_z]
+        t_bins_full = [ np.squeeze(np.argwhere( np.squeeze(( probe_position_interval > upper) & ( probe_position_interval < lower)  )) )for upper, lower in zip( z_bins-delta_z, z_bins+delta_z ) ]
+        #print len(z_bins)
+        #print [ (upper, lower) for upper, lower in zip( z_bins - delta_z, z_bins + delta_z ) ]
+        #print t_bins_full
+
+        # Remove empty bins where the probe does not reciprocate into
+        while( np.size(t_bins_full[-1]) < 1 ):
+            t_bins_full.pop()
+        #    z_bins = z_bins[:-1]
+
+        if show_plots:
+            plt.figure()
+            for idx, bin in enumerate(t_bins_full):
+                if len(bin) == 0:
+                    continue
+                #print idx, bin
+                plt.plot( time_interval[ bin[0] : bin[-1] ], probe_position_interval[ bin[0] : bin[-1] ] )
+ 
+        binned_list.append( t_bins_full )
+        plt.show()
+
+    return  t_recip_intervals, binned_list
 
