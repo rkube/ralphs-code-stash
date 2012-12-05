@@ -34,6 +34,9 @@ def detect_peaks_1d( timeseries, timebase, delta_peak, threshold, peak_width = 1
     Output:
     ========
     peak_idx_list:  Indices of peaks matching the input criteria, np.ndarray
+
+
+
     """
 
     # Make timeseries a masked array
@@ -57,10 +60,13 @@ def detect_peaks_1d( timeseries, timebase, delta_peak, threshold, peak_width = 1
         if ( mv == -1 ):
             # Peak was discarded in previous iteration, continue with next item
             continue
+        if ( np.abs( np.size(timeseries) - mv) < peak_width+1 ):
+            # Peak is too close to the boundaries, skip
+            continue
         # Discard current peak if it is not a local maximum
         # Using < > operators on masked elements yields a float for which the | operator is undefined.
         try: 
-            if ( np.logical_or(timeseries[mv-peak_width:mv] > timeseries[mv], timeseries[mv+peak_width:mv+peak_width+1] > timeseries[mv]).all()):
+            if ( np.logical_or(timeseries[mv-peak_width:mv] > timeseries[mv], timeseries[mv+1:mv+1+peak_width] > timeseries[mv]).all()):
                 max_values[idx] = -1    
         except TypeError:
             pass # Do nothing, one of the neighbouring values is masked. Assume this is a local maximum
