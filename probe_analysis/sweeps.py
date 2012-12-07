@@ -20,6 +20,7 @@ import numpy.ma as ma
 import matplotlib.pyplot as plt
 from uifit import uifit
 from misc.peak_detection import detect_peaks_1d
+from probe_analysis.uifit import uifit_minTE
 
 def get_sweep_idx(probe_vsweep, probe_R, Rmin, Rmax, timebase, dt_sweep = 3000, show_plots = False):
     """
@@ -56,7 +57,6 @@ def get_sweep_idx(probe_vsweep, probe_R, Rmin, Rmax, timebase, dt_sweep = 3000, 
     sweep_tuples = [ (s_low, s_up) for s_low, s_up in zip( sweep_max[:-1], sweep_max[1:]) if (np.abs(s_low - s_up) < int(dt_sweep / (timebase[100] - timebase[99])) )  ]
     print 'Done'
     # Remove tuples which are more than average apart. We assume th
-
 
 
     if show_plots:
@@ -105,38 +105,73 @@ def sweep_profile_fitui(timebase, jsat, vsweep, probe_R, sweep_tuple, show_plots
     # Iterate over the tuples
     R = np.zeros( len(sweep_tuple), dtype='float64')
     isat_profile = np.zeros(len(sweep_tuple), dtype='float64')
+    isat_rms_profile = np.zeros(len(sweep_tuple), dtype='float64')
+    isat_skew_profile = np.zeros(len(sweep_tuple), dtype='float64')
+    isat_kurt_profile = np.zeros(len(sweep_tuple), dtype='float64')
     Te_profile = np.zeros(len(sweep_tuple), dtype='float64')
     Vf_profile = np.zeros(len(sweep_tuple), dtype='float64')
 
+
+    # Create a mask which indicates bad fits
+    bad_fit_mask = np.ones(np.shape(isat_profile))
+    bad_fit_counter = 0
     for idx, stuple in enumerate(sweep_tuple):
         print '===================== Processing tuple (%d,%d)' % stuple
         s0, s1 = stuple
         tl2 = int(round((s1-s0)/2))
 
-        U = vsweep[s1-tl2:s1]
-        I = jsat[s1-tl2:s1]
+        U = vsweep[s1-tl2:s1].astype('float64')
+        I = jsat[s1-tl2:s1].astype('float64')
         t = timebase[s1-tl2:s1]
+        #U = vsweep[stuple[0]:stuple[1]]
+        #I = jsat[stuple[0]:stuple[1]]
+        #t = timebase[stuple[0]:stuple[1]]
 
         R[idx] = probe_R[s1-tl2:s1].mean()
 
         # Fit U-I characteristic on each tuple
-        Isat, err_Isat, Vf, err_Vf, Te, err_Te = uifit(U.astype('float64'),I.astype('float64'), show_plots = False)
-        print 'Recieved: ISat=%4.3f pm %4.3f A, Vf= %4.3f pm %4.3f V, Te=%4.3f pm %4.3f eV' % (Isat, err_Isat, Vf, err_Vf, Te, err_Te)
-        isat_profile[idx] = Isat
-        Te_profile[idx] = Te
-        Vf_profile[idx] = Vf
+        #try:
+        if True:
+            isat, isat_rms, isat_skew, isat_kurt, vf, sigma_vf, te, sigma_te = uifit_minTE(U, I, fit_min = 50, fit_max = 200, fit_step = 20, show_plots = False, save_plots = False)
 
+            #Isat, err_Isat, Vf, err_Vf, Te, err_Te = uifit(U.astype('float64'),I.astype('float64'), show_plots = False)
+            #print 'Recieved: ISat=%4.3f pm %4.3f A, Vf= %4.3f pm %4.3f V, Te=%4.3f pm %4.3f eV' % (Isat, err_Isat, Vf, err_Vf, Te, err_Te)
+            isat_profile[idx] = isat
+            isat_rms_profile[idx] = isat_rms
+            isat_skew_profile[idx] = isat_skew
+            isat_kurt_profile[idx] = isat_kurt
+            Te_profile[idx] = te
+            Vf_profile[idx] = sigma_te
+
+            #print '     %d-%d' % (stuple[0], stuple[0]+5), 'sweeps: t[:5] = ', t[:5], 'U[:t5]=', U[:5]
+        #except ValueError, e:
+        else:
+            print e
+            print 'Bad fit at t=%5.4fs, R=%4.2fm' % (t.mean(), R[idx])
+            isat_profile[idx] =  np.nan
+            isat_rms_profile[idx] = np.nan
+            isat_skew_profile[idx] = np.nan
+            isat_kurt_profile[idx] = np.nan
+            Te_profile[idx] = np.nan
+            bad_fit_mask[idx] = True
+            bad_fit_counter += 1
 
         if show_plots:
             fig = plt.figure()
+            fig.text(0.5, 0.95, 't=%3.2f R=%4.3f' % (timebase[s0:s1].mean(), probe_R[s0:s1].mean()))
             ax1 = fig.add_subplot(211)
             ax2 = fig.add_subplot(212)
+
             ax1.plot(t, U)
             ax2.plot(U,I, 'b,', label='Probe')
             ax2.plot(U, -ui_fun(U, Vf, Te, Isat),'k', label='Fit: I = %4.3f * exp(V - %4.2fV/%4.2f)'% ( Isat, Vf, Te))
             ax2.legend(loc='lower left')
+            #fig.savefig('/Volumes/My Book Thunderbolt Duo/cmod_data/local/plots/uifit_%d_%d.png' % stuple)
+            plt.close()
 
-    plt.show()
+            plt.show()
+
+    print 'Total/Failed fits: %d/%d' % (np.size(sweep_tuple), bad_fit_counter)
 
     return R, isat_profile, Te_profile, Vf_profile
 
