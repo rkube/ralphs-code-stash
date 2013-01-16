@@ -55,7 +55,6 @@ def detect_peaks_1d( timeseries, timebase, delta_peak, threshold, peak_width = 1
         return np.array([])
        
     # Eliminate values exceeding the threshold within delta_peak of another
-
     for idx, mv in enumerate(max_values):
         if ( mv < peak_width+1 ):
             # This accounts for peaks too close to the boundary as well as peaks

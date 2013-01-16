@@ -7,7 +7,21 @@ import matplotlib.pyplot as plt
 from misc.smoothing import smooth
 from scipy.stats import skew, kurtosis
 
-def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n0=1e13, show_plots = True, save_plots = False, plotname_base = ''): 
+
+# Define an error class that is thrown if a fit fails:
+
+class FitException(BaseException):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+    
+def ui_fun(U, Isat, Vfloat, Te):
+    """Theoretical U-I curve"""
+    return Isat * (np.exp( (U-Vfloat)/Te) - 1.0)
+
+
+def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n0=1e13, eps_isat_trend = 1e-4, num_isat_shrink = 10, return_plot = False):
     """
     Fit a U-I characteristic on the profile using the min Te method.
 
@@ -19,11 +33,12 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
 
 
     Input:
-        U:          Probe voltage
-        I:          Probe current
-        nfit:       Number of points to fit
-        interval:   Number of points to increase fit interval to find Te
-
+        U:                  Probe voltage
+        I:                  Probe current
+        nfit:               Number of points to fit
+        interval:           Number of points to increase fit interval to find Te
+        eps_isat_trend:     Maximal trend in isat region
+        num_isat_shrink:    Shrink isat region iteratively by num_isat_shrink when compensating for trend
 
     Output:
         ne          Particle density
@@ -33,7 +48,6 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
     """
     smooth_length = 40
     x_sheath = lambda V0,Te: 1.02 * ( ( (-V0/Te)**0.5 - 2.0**-0.5)**0.5 * ( (-V0/Te)**0.5 + 2.0**0.5) )
-    I_fun = lambda U, Isat, Vfloat, Te: Isat * ( np.exp( (U-Vfloat)/Te) - 1.0)
     nlin_fitfun = lambda U, a, b, c: a + b*np.exp(U/c)
     fit_range = np.arange( fit_min, fit_max+1, fit_step)
     nfits = np.size(fit_range)
@@ -44,15 +58,13 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
     sigmaB_fit = np.zeros(nfits, dtype='float64')
     c_fit = np.zeros(nfits, dtype='float64')
     sigmaC_fit = np.zeros(nfits, dtype='float64')
-    # Epsilon parameter for defining Isat region
-    eps_isat_trend = 1e-4
-    # Number of points by which the isat interval is shrunk per iteration
-    num_isat_shrink = 10
 
-
-    # Smooth the U-U curve and estimate the floating potential
-    I_sm = smooth(I, smooth_length)
-    I_sm = I_sm[smooth_length/2:-(smooth_length/2-1)]
+    # Smooth the U-I curve and estimate the floating potential
+    try:
+        I_sm = smooth(I, smooth_length)
+        I_sm = I_sm[smooth_length/2:-(smooth_length/2-1)]
+    except:
+        raise FitException('Failed to smooth')
     try:
         vfloat_guess_idx = np.argmin(np.abs(I_sm))
         vfloat_guess = U[vfloat_guess_idx]
@@ -61,14 +73,16 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
 
     print 'Guessing vfloat: at idx %d: %f, I[%d] = %f' % ( vfloat_guess_idx, vfloat_guess, vfloat_guess_idx, I[vfloat_guess_idx])
 
-    if show_plots:
-        fig_res = plt.figure()
-        ax_res = fig_res.add_subplot(111)
-        ax_res.plot(U, I, label='Input data')
-        plt.figure()
-        plt.plot(U,I_sm)
-        plt.plot(U[vfloat_guess_idx], I[vfloat_guess_idx], 'ko')
-    #    plt.show()
+    if return_plot:
+        #fig_vfest = plt.figure()
+        fig_result = plt.figure(figsize=(12,12))
+        ax_res1 = fig_result.add_subplot(311)
+        ax_res1.plot(U, I, label='Input data')
+        ax_res1.set_ylim( (0.8*I.min(), 1.2*I.max()))
+        #ax_vfest = fig_vfest.add_subplot(111)
+        #ax_vfest.plot(U, I, label='Input data')
+        #ax_vfest.plot(U, I_sm, label='smoothed data')
+        #ax_vfest.plot(U[vfloat_guess_idx], I[vfloat_guess_idx], 'ko', label='Estimated Vfloat')
 
     # Setup the fit interval
     # Assure the following conditions:
@@ -87,7 +101,7 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
     #Increase the fit areal and fit Isat, I_b and Te. Te has a global minimum, so once c(Te) increases we can break
     print '====== Running first fit ========'
     for idx, npoints in enumerate(fit_range):
-        a_fit[idx], sigmaA_fit[idx], b_fit[idx], sigmaB_fit[idx], c_fit[idx], sigmaC_fit[idx], RChi2 = uifit(U[vfloat_guess_idx:vfloat_guess_idx+npoints], I[vfloat_guess_idx:vfloat_guess_idx+npoints], nfits=1, offset=0, interval=0, show_plots=show_plots)
+        a_fit[idx], sigmaA_fit[idx], b_fit[idx], sigmaB_fit[idx], c_fit[idx], sigmaC_fit[idx], RChi2 = uifit(U[vfloat_guess_idx:vfloat_guess_idx+npoints], I[vfloat_guess_idx:vfloat_guess_idx+npoints], nfits=1, offset=0, interval=0, show_plots=False)
         print '   from lstsq-fit: a=%f pm %f\tb=%f pm %f\tc=%f pm %f, RChi2=%f' % ( a_fit[idx], sigmaA_fit[idx], b_fit[idx], sigmaB_fit[idx], c_fit[idx], sigmaC_fit[idx], RChi2)
     # Choose the fit with the minimum error on temperature
     best_fit_idx = sigmaC_fit.argmin() 
@@ -107,34 +121,26 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
     A_effective[np.isnan(A_effective)] = 1.0
     I = I / A_effective
 
-    # Plot the effective area   
-    #if show_plots:
-    #    fig = plt.figure()
-    #    ax = fig.add_subplot(111)
-    #    ax.plot(U, A_effective)
-    #    ax.set_xlabel('Prove Bias/V')
-    #    ax.set_ylabel('Effective area [a.u.]')
-
     # Do second round if fitting with U-I curve compensated for varying sheath thickness
     for idx, npoints in enumerate(np.arange(fit_min, fit_max+1, fit_step)):
-        a_fit[idx], sigmaA_fit[idx], b_fit[idx], sigmaB_fit[idx], c_fit[idx], sigmaC_fit[idx], RChi2 = uifit(U[:vfloat_guess_idx+npoints], I[:vfloat_guess_idx+npoints], nfits=1, offset=0, interval=0, show_plots=show_plots)
+        a_fit[idx], sigmaA_fit[idx], b_fit[idx], sigmaB_fit[idx], c_fit[idx], sigmaC_fit[idx], RChi2 = uifit(U[:vfloat_guess_idx+npoints], I[:vfloat_guess_idx+npoints], nfits=1, offset=0, interval=0, show_plots=False)
         print '   from lstsq-fit: a=%f pm %f\tb=%f pm %f\tc=%f pm %f, RChi2=%f' % ( a_fit[idx], sigmaA_fit[idx], b_fit[idx], sigmaB_fit[idx], c_fit[idx], sigmaC_fit[idx], RChi2)
     # Choose the best fit: Select the fit with minimal temperature on all fits, where I_sat > 0 and I_b < 0
-    neg_isat_idx = np.argwhere(a_fit > 0)       # 1.) Isat > 0
-    neg_ib_idx = np.argwhere(b_fit < 0)         # 2.) Ib < 0
-    large_te_idx = np.argwhere(c_fit > 10.)     # 3.) Te > 10.
+    neg_isat_idx = np.argwhere(a_fit > 0)                          # 1.) Isat > 0
+    neg_ib_idx = np.argwhere(b_fit < 0)                            # 2.) Ib < 0
+    large_te_idx = np.argwhere((c_fit > 10.) & (c_fit < 130.))     # 3.) 5 < Te < 100
     # The fits we consider are in the intersection of these arrays
     good_fit_idx = np.intersect1d(large_te_idx, np.intersect1d( neg_isat_idx, neg_ib_idx))
-    print 'Considering only indices:', good_fit_idx
     
     # The fit can of course go wrong. If this is the case, raise an error
     # Conditions for a bad fit: (found empirical)
     if ( np.size(good_fit_idx) < 1 ):
-        print 'good_fit_idx = ', good_fit_idx, ' are too few to choose from'
-        #raise ValueError('Bad fit, no fit with positve Isat, negative Ib and Te < 100eV found')
+        print 'No fit qualifies, good_fit_idx=', good_fit_idx
+        plt.close()
+        raise FitException('Bad fit, no fit with positve Isat, negative Ib and Te < 100eV found')
 
     best_fit_idx = sigmaC_fit[good_fit_idx].argmin()
-    print 'best_fit_idx=%d' % best_fit_idx
+    print 'Considering only indices:', good_fit_idx, 'best fit at idx%d' % best_fit_idx
 
     a_best = (a_fit[good_fit_idx])[best_fit_idx]
     sigmaA_best = (sigmaA_fit[good_fit_idx])[best_fit_idx]
@@ -152,70 +158,97 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
     vfloat_best = Te_best * np.log(-Isat_best / b_best)
     sigma_vfloat = np.sqrt( np.log(-Isat_best/b_best)**2*sigma_Te**2 + Te_best*Te_best*sigma_Isat*sigma_Isat/(Isat_best*Isat_best * np.abs(b_best)) + Te_best**2*sigmaB_best**2/b_best**2)
 
- 
     print '====Best fit parameters:'
-    print 'a = %f, sigmaA = %f, b = %f, sigmaB = %f, c = %f, sigmaC = %f' % ( a_best, sigmaA_best, b_best, sigmaB_best, c_best, sigmaC_best)
+    print 'a = %f\t, sigmaA = %f\t, b = %f\t, sigmaB = %f\t, c = %f\t, sigmaC = %f' % ( a_best, sigmaA_best, b_best, sigmaB_best, c_best, sigmaC_best)
     print 'Isat = %f pm %f\tVfloat = %f pm %f\tTe = %f pm %f' % (Isat_best, sigma_Isat, vfloat_best, sigma_vfloat, Te_best, sigma_Te)
 
    
-    if show_plots:
-        ax_res.plot(U, I, 'g', label='Probe data, probe_A compensated')
-        ax_res.plot(U, nlin_fitfun(U, a_best, b_best, c_best), label='Fit: a=%f, b=%f, c=%f' % (a_best, b_best, c_best) )
-        ax_res.plot(U, -I_fun(U, Isat_best, vfloat_best, Te_best), 'k', label='Fit, Isat=%4.3fA Vfloat=%4.2fV, Te=%4.2feV' % (Isat_best, vfloat_best, Te_best))
-        ax_res.legend(loc='lower left')
+    if return_plot:
+        ax_res1.plot(U, I, '.g', label='Probe data, probe_A compensated')
+        ax_res1.plot(U, nlin_fitfun(U, a_best, b_best, c_best), label='Fit: a=%f, b=%f, c=%f' % (a_best, b_best, c_best) )
+        ax_res1.plot(U, -ui_fun(U, Isat_best, vfloat_best, Te_best), 'k', label='Fit, Isat=%4.3fA Vfloat=%4.2fV, Te=%4.2feV' % (Isat_best, vfloat_best, Te_best))
+        ax_res1.legend(loc='lower left')
 
-    # Last part. Compute statistics for I for the Isat region. We need a detrended Isat region.
-    # The criterion for a detrended Isat region is: Let the trend in this region be given by I = m*I + n 
+    # Last part. Compute statistics for I in the Isat region. We need a detrended Isat region.
+    # The criterion for a detrended Isat region is: Let the trend in this region be given by T = m*U + n 
     # Then the trend m is much smaller than the mean on this interval: m / <I> < epsilon
     # Compute mean, rms, skewness and kurtosis on minimum 100 points. If the isat region
     # still shows a significant trend, this is a bad fit.
 
-    # Define the Isat region. First, take an educated guess:
-    isat_indices = np.argwhere( U[U< vfloat_best - 3.0*Te_best] )
+    # Define the Isat region. First, take an educated guess: between 1-150 or index of (U < vfloat-3TE)
+    try:
+        # The line below raises a value error for vfloat -3Te < min(U).
+        isat_indices = np.arange(1, max( np.argwhere( U[U< vfloat_best - 3.0*Te_best] ).max(), 201) )
+    except ValueError:
+        isat_indices = np.arange(1,201)
+
     lin_trend_norm = 100.
-    while (lin_trend_norm > eps_isat_trend):
-        #print 'size of isat interval: %d' % (np.size(isat_indices)), 'shape(I[isat_indices]) = ', np.shape(I[isat_indices]) , 'shape(U[isat_indices]) = ', np.shape(U[isat_indices])
+    good_isat_region = False
+    while ((lin_trend_norm > eps_isat_trend) and (np.size(isat_indices) > 100 )):
         # Find the trend of the signal by computing linear least squares fit
         A = np.vstack([ np.squeeze(U[isat_indices]), np.ones(np.size(U[isat_indices]))]).T
-        lin_trend, offset = np.linalg.lstsq(A,I[isat_indices])[0]
+        try:
+            lin_trend, offset = np.linalg.lstsq(A,I[isat_indices])[0]
+        except ValueError:
+            print 'Least squares fit on isat region failed: %d points.' % ( np.size(isat_indices) )
+            isat_indices = isat_indices[:-num_isat_shrink]
+            good_isat_region = False
+            continue
+        good_isat_region = True
         lin_trend_norm = np.abs(lin_trend / I[isat_indices].mean())
-        #print 'Linear trend in isat region: %f, trend/<Isat> = %f' % (lin_trend, lin_trend_norm)
+        print 'Isat region, %d items, Linear trend: %f, <I> = %f, trend/<Isat> = %f' % (np.size(isat_indices), lin_trend, I[isat_indices].mean(), lin_trend_norm)
         isat_indices = isat_indices[:-num_isat_shrink]
-             
-    # Remove the remaining linear trend on the Isat region
-    isat_region = np.zeros_like(I[isat_indices])
-    isat_region[:] = I[isat_indices] - U[isat_indices] * lin_trend 
+            
+    if good_isat_region: 
+        print 'Good isat region on voltages ', U[isat_indices[0]], ':', U[isat_indices[-1]]
+        # This block is executed if we found part of the Isat signal showing only a small trend
+        # Remove the remaining linear trend on the Isat region
+        isat_region = np.zeros_like(I[isat_indices])
+        isat_region[:] = I[isat_indices] - U[isat_indices] * lin_trend 
 
-    # Compute statistics in the isat signal
-    if ( np.size(isat_indices) > 100 ):
-        #  Large enough region, compute moments
-        isat_mean = isat_region.mean()
-        isat_rms = isat_region.std() / isat_region.mean()
-        isat_skew = skew(isat_region - isat_mean)
-        isat_kurt = kurtosis(isat_region - isat_mean) 
+        # Compute statistics in the isat signal
+        if ( np.size(isat_indices) > 100 ):
+            #  Large enough region, compute moments
+            isat_mean = isat_region.mean()
+            isat_rms = isat_region.std() / isat_region.mean()
+            isat_skew = skew(isat_region - isat_mean)
+            isat_kurt = kurtosis(isat_region - isat_mean) 
+        else:
+            # Region too small, statistics are meaningless
+            isat_mean = Isat_best
+            isat_rms = -999.9
+            isat_skew = -999.9
+            isat_kurt = -999.9
     else:
-        # Region too small, statistics are meaningless
+        # No subintervall in the isat region without a trend could be identified
         isat_mean = Isat_best
         isat_rms = -999.9
         isat_skew = -999.9
         isat_kurt = -999.9
 
-    if show_plots:
-        fig_stat = plt.figure()
-        ax_sig = fig_stat.add_subplot(211)
-        ax_hist = fig_stat.add_subplot(212)
+
+    #print 'Length of the isat indices:', np.size(isat_indices), ':', isat_indices
+
+    if return_plot:
+        ax_sig = fig_result.add_subplot(312)
+        ax_hist = fig_result.add_subplot(313)
+        ax_sig.set_xlabel('probe bias/V')
+        ax_sig.set_ylabel('probe current/A')
         ax_sig.plot(U[isat_indices], I[isat_indices], label='Probe')
         ax_sig.plot(U[isat_indices], U[isat_indices]*lin_trend + offset, 'k', label='linear trend')
         ax_sig.plot(U[isat_indices], isat_region, 'g', label='Detrended') 
         ax_sig.legend(loc='best') 
     
-        hist, edges = np.histogram(isat_region, bins = np.round(float(np.size(isat_region))/20.)) 
+        hist, edges = np.histogram(isat_region, bins = int(np.round(float(np.size(isat_region))/20.)) )
         ax_hist.plot( edges[:-1] + (edges[1:] - edges[:-1])*0.5, hist, 'b.', label='detrended, mean=%3.2f, rms=%3.2f, s=%3.2f, k=%3.2f' % ( isat_mean, isat_rms, isat_skew, isat_kurt) )
         ax_hist.set_xlabel('detrended Isat /A')
         ax_hist.set_ylabel('counts')
         ax_hist.legend(loc='best')
 
-    return isat_mean, isat_rms, isat_skew, isat_kurt, vfloat_best, sigma_vfloat, Te_best, sigma_Te
+    if return_plot:
+        return isat_mean, isat_rms, isat_skew, isat_kurt, vfloat_best, sigma_vfloat, Te_best, sigma_Te, fig_result
+    else:
+        return isat_mean, isat_rms, isat_skew, isat_kurt, vfloat_best, sigma_vfloat, Te_best, sigma_Te
 
 
 def uifit(U, I_fit, nfits=4, offset = 1, interval = 20, show_plots = False):
@@ -242,7 +275,7 @@ def uifit(U, I_fit, nfits=4, offset = 1, interval = 20, show_plots = False):
     fexp_lib = ctypes.cdll.LoadLibrary('/Users/ralph/source/py_fortran_tests/fastexprange_work.so')
 
     # Theoretica U-I characteristic
-    I_fun = lambda U, V_float, T_e, I_sat : I_sat* ( np.exp( (U-V_float)/T_e) - 1.0)
+    #I_fun = lambda U, V_float, T_e, I_sat : I_sat* ( np.exp( (U-V_float)/T_e) - 1.0)
     # Create an artificial U-I characteristic with random noise superposed
     npoints = np.size(U)
 
@@ -311,26 +344,6 @@ def uifit(U, I_fit, nfits=4, offset = 1, interval = 20, show_plots = False):
 
 
     return a.value, sigmaA.value, b.value, sigmaB.value, c.value, sigmaC.value, RChi2.value
-#
-#    v_float_fit = np.zeros( npts_end.value, dtype='float64')
-#    #print '=============================================================================== Fitting U-I curve'
-#    #print '    Returned from fit_result:'
-#    for i in np.arange(npts_end.value):
-#        #print '    I_sat = %f pm %f,\tI_b, = %f pm %f,\tT_e = %f pm %f,\tRChi2 = %e' % (a[i], sigmaA[i], b[i], sigmaB[i], c[i], sigmaC[i], RChi2[i])
-#        v_float_fit[i] = c[i] * np.log(-a[i]/b[i])
-#        #print '    Computing: V_float = %f' % ( v_float_fit[i] )
-#
-#    if show_plots:
-#        fig = plt.figure()
-#        ax_list = [fig.add_subplot(npts_end.value, 1, i) for i in np.arange(1, npts_end.value+1)]
-#        for i in np.arange(npts_end.value):
-#            ax_list[i].plot(U[:iend[i]], I_fit[:iend[i]] - a[i], 'k.')
-#            ax_list[i].plot(U[:iend[i]], -I_fun(U[:iend[i]], v_float_fit[i], c[i], a[i]) - a[i], 'k')
-#        
-#        plt.show()
-#    bidx = np.argmin(sigmaC)
-#
-#    return a[bidx], sigmaA[bidx], c[bidx]*np.log(-a[bidx]/b[bidx]), sigmaB[bidx], c[bidx], sigmaC[bidx]
 
 
 

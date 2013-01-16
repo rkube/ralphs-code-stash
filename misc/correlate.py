@@ -37,6 +37,7 @@ def correlate( signal1, signal2, window_length, mode = 1 ):
     # Compute correlation only for positive time lags., tau is the timelag
     corr[ window_length ] = ( (signal1-signal1.mean()) * (signal2-signal2.mean())).mean() / ( signal1.std() * signal2.std() )
     for tau in np.arange(1, window_length+1):
+        #print '%d/%d' % (tau, window_length)
         if mode == 1:
             corr[ window_length + tau ]     = ( (signal1[:-tau] -signal1[:-tau].mean())  * (signal2[tau:] - signal2[tau:].mean())).mean() / ( signal1[:-tau].std() * signal2[tau:].std() )
         elif mode == 2:
