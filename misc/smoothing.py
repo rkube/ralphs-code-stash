@@ -201,7 +201,7 @@ def normalize_timeseries(timeseries, radius=16384, blocksize=128, maxelem = 2621
         print 'Computing moving average of:', timeseries[idx_start:idx_start+5] , 'storing to:', result_ma[:5]
         c_indata_avg = ctypes.c_void_p(timeseries[idx_start:idx_start + maxelem].ctypes.data)
         result = ma_lib.ma_cuda(c_indata_avg, c_result_ma, c_numpoints_avg)
-        print 'Done. Size of returned array: %d' % (np.size(result_ma)) 
+        print 'Done. Size of returned array: %d' % (np.size(result_ma)), ': ', result_ma[:5]
 
         #print 'Computing moving RMS...'
         indata_rms[:] = timeseries[idx_start + radius : idx_start + maxelem - radius] - result_ma

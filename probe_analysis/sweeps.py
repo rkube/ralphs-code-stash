@@ -87,9 +87,19 @@ def get_sweep_idx(probe_vsweep, probe_R, Rmin, Rmax, timebase, dt_sweep = 3000, 
     return sweep_tuples
 
 
+def sweep_profile_mean(sweep_tuples, timeseries):
+    """
+    Return the mean over each tuple [t1:t2] of sweep_tuples
+    """
 
 
-def sweep_profile_fitui(timebase, jsat, vsweep, probe_R, sweep_tuple, show_plots = True, save_good_fits = True, save_basename = '/Users/ralph/tmp/mybook_backup/cmod_data/local/plots'):
+    mean_list = np.array([ timeseries[t[0]:t[1]].mean() for t in sweep_tuples ])
+
+    return mean_list
+
+
+#def sweep_profile_fitui(timebase, jsat, vsweep, probe_R, sweep_tuple, show_plots = True, save_good_fits = True, save_basename = '/Users/ralph/tmp/mybook_backup/cmod_data/local/plots'):
+def sweep_profile_fitui(timebase, jsat, vsweep, probe_R, sweep_tuple, show_plots = True, show_bad_fits = False, save_good_fits = False, save_basename = '/Volumes/My Book Thunderbolt Duo/cmod_data/local/plots', silent=True):
     """
     Fit a Langmuir characteristic on each U-I curve
 
@@ -106,17 +116,19 @@ def sweep_profile_fitui(timebase, jsat, vsweep, probe_R, sweep_tuple, show_plots
     R = np.zeros( len(sweep_tuple), dtype='float64')
     isat_profile = np.zeros(len(sweep_tuple), dtype='float64')
     isat_rms_profile = np.zeros(len(sweep_tuple), dtype='float64')
+    isat_fluc_profile = np.zeros(len(sweep_tuple), dtype='float64')
     isat_skew_profile = np.zeros(len(sweep_tuple), dtype='float64')
     isat_kurt_profile = np.zeros(len(sweep_tuple), dtype='float64')
     Te_profile = np.zeros(len(sweep_tuple), dtype='float64')
     Vf_profile = np.zeros(len(sweep_tuple), dtype='float64')
-
+    num_points = np.zeros(len(sweep_tuple), dtype='float64')
 
     # Create a mask which indicates bad fits
     bad_fit_mask = np.ones(np.shape(isat_profile))
     bad_fit_counter = 0
     for idx, stuple in enumerate(sweep_tuple):
-        print '===================== Processing tuple (%d,%d)' % stuple
+        if not(silent):
+            print '===================== Processing tuple (%d,%d)' % stuple
         s0, s1 = stuple
         tl2 = int(round((s1-s0)/2))
 
@@ -128,6 +140,18 @@ def sweep_profile_fitui(timebase, jsat, vsweep, probe_R, sweep_tuple, show_plots
         U_work = np.zeros_like(U)
         I_work = np.zeros_like(I)
 
+        if (np.size(U) < 100 ):
+            isat_profile[idx] = np.nan
+            isat_rms_profile[idx] = np.nan
+            isat_fluc_profile[idx] = np.nan
+            isat_skew_profile[idx] = np.nan
+            isat_kurt_profile[idx] = np.nan
+            Te_profile[idx] = np.nan
+            Vf_profile[idx] = np.nan
+            bad_fit_mask[idx] = True
+            bad_fit_counter += 1
+            continue            
+
         # Assure that the U-I sweep is ordered such that U is an array of increasing voltages
         if ( U[0] > U[-1] ):
             U_work[:] = U[::-1]
@@ -138,16 +162,18 @@ def sweep_profile_fitui(timebase, jsat, vsweep, probe_R, sweep_tuple, show_plots
 
         # Fit U-I characteristic on each tuple
         try:
-            print '------- Trying U-I fit on U=[%f:%f]' % (U_work[0], U_work[-1])
+            if not(silent):
+                print '------- Trying U-I fit on U=[%f:%f]' % (U_work[0], U_work[-1])
             if save_good_fits:
-                isat_profile[idx], isat_rms_profile[idx], isat_skew_profile[idx], isat_kurt_profile[idx], Vf_profile[idx], sigma_vf, Te_profile[idx], sigma_te, fit_result_fig = uifit_minTE(U_work, I_work, fit_min = 50, fit_max = 300, fit_step = 20, eps_isat_trend =5e-2, return_plot = True)
+                isat_profile[idx], isat_rms_profile[idx], isat_fluc_profile[idx], isat_skew_profile[idx], isat_kurt_profile[idx], Vf_profile[idx], sigma_vf, Te_profile[idx], sigma_te, num_points[idx], fit_result_fig = uifit_minTE(U_work, I_work, fit_min = 50, fit_max = 300, fit_step = 20, eps_isat_trend =5e-2, return_plot = True, silent=True)
                 fit_filename = '%s/uifit_t%5.4fs_R%3.2f.eps' % (save_basename, t.mean(), R[idx])
-                print 'Saving good fit to %s' % (fit_filename)
+                if not(silent):
+                    print 'Saving good fit to %s' % (fit_filename)
                 fit_result_fig.savefig(fit_filename)
                 plt.close()
 
             else:
-                isat_profile[idx], isat_rms_profile[idx], isat_skew_profile[idx], isat_kurt_profile[idx], Vf_profile[idx], sigma_vf, Te_profile[idx], sigma_te = uifit_minTE(U_work, I_work, fit_min = 50, fit_max = 300, fit_step = 20, eps_isat_trend =5e-2, return_plot = False)
+                isat_profile[idx], isat_rms_profile[idx], isat_fluc_profile[idx], isat_skew_profile[idx], isat_kurt_profile[idx], Vf_profile[idx], sigma_vf, Te_profile[idx], sigma_te, num_points[idx] = uifit_minTE(U_work, I_work, fit_min = 50, fit_max = 300, fit_step = 20, eps_isat_trend =5e-2, return_plot = False, silent=True)
 
             if show_plots:
                 fit_fig = plt.figure()
@@ -164,18 +190,19 @@ def sweep_profile_fitui(timebase, jsat, vsweep, probe_R, sweep_tuple, show_plots
             print 'Bad fit at t=%5.4fs, R=%4.2fm' % (t.mean(), R[idx])
             isat_profile[idx] =  np.nan
             isat_rms_profile[idx] = np.nan
+            isat_fluc_profile[idx] = np.nan
             isat_skew_profile[idx] = np.nan
             isat_kurt_profile[idx] = np.nan
             Te_profile[idx] = np.nan
             Vf_profile[idx] = np.nan
             bad_fit_mask[idx] = True
             bad_fit_counter += 1
-
-            fail_fig = plt.figure()
-            fail_axis = fail_fig.add_subplot(111)
-            fail_axis.plot(U, I)
-            fail_axis.set_title('Failed to fit')
-            plt.show()
+            if show_bad_fits:
+                fail_fig = plt.figure()
+                fail_axis = fail_fig.add_subplot(111)
+                fail_axis.plot(U, I)
+                fail_axis.set_title('Failed to fit')
+                plt.show()
 
         isat_profile_ma = ma.MaskedArray(isat_profile, mask=bad_fit_mask)
         Te_profile_ma = ma.MaskedArray(Te_profile, mask=bad_fit_mask)
@@ -185,7 +212,7 @@ def sweep_profile_fitui(timebase, jsat, vsweep, probe_R, sweep_tuple, show_plots
 
     print 'Total/Failed fits: %d/%d' % (np.size(sweep_tuple), bad_fit_counter)
 
-    return R, isat_profile, isat_rms_profile, isat_skew_profile, isat_kurt_profile, Te_profile, Vf_profile
+    return R, isat_profile, isat_rms_profile, isat_fluc_profile, isat_skew_profile, isat_kurt_profile, Te_profile, Vf_profile, num_points
 
 
 

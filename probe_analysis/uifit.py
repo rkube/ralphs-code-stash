@@ -21,7 +21,7 @@ def ui_fun(U, Isat, Vfloat, Te):
     return Isat * (np.exp( (U-Vfloat)/Te) - 1.0)
 
 
-def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n0=1e13, eps_isat_trend = 1e-4, num_isat_shrink = 10, return_plot = False):
+def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n0=1e13, eps_isat_trend = 1e-4, num_isat_shrink = 10, return_plot = False, silent = True):
     """
     Fit a U-I characteristic on the profile using the min Te method.
 
@@ -44,6 +44,19 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
         ne          Particle density
         Isat:       Ion saturation current
         Te:         Electron temperature
+    
+    Return lines:
+        isat_mean:          Mean of isat on the stationary region
+        isat_rms:           RMS of isat on the stationary region
+        isat_fluc:          Normalized fluctuation of isat on the stationary region
+        isat_skew:          Skewness of isat on the stationary region
+        isat_kurt:          Kurtosis of isat on the stationary region
+        vfloat_best:        Best fit parameter of Vfloat
+        sigma_vfloat:       Error on best Vfloat guess from fit
+        Te_best:            Best fit parameter on T_e
+        sigma_Te:           Error on best T_e guess from fit
+        num_stationary:     Length of determined interval on which isat is steady
+        fig_result:         Figure with fit results
 
     """
     smooth_length = 40
@@ -71,7 +84,8 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
     except:
         pass
 
-    print 'Guessing vfloat: at idx %d: %f, I[%d] = %f' % ( vfloat_guess_idx, vfloat_guess, vfloat_guess_idx, I[vfloat_guess_idx])
+    if not(silent):
+        print 'Guessing vfloat: at idx %d: %f, I[%d] = %f' % ( vfloat_guess_idx, vfloat_guess, vfloat_guess_idx, I[vfloat_guess_idx])
 
     if return_plot:
         #fig_vfest = plt.figure()
@@ -91,23 +105,27 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
     # If any condition fails, adjust the fit interval appropriately
 
     if (vfloat_guess_idx + fit_min > np.size(I)):
-        print 'The minimum length of the fit interval cannot exceed the array size'
-        print 'Adjusting fit_min = 10'
+        if not(silent):
+            print 'The minimum length of the fit interval cannot exceed the array size'
+            print 'Adjusting fit_min = 10'
         fit_min = 10
 
     if(vfloat_guess_idx + fit_max > np.size(I)):
         fit_max = np.size(I) - vfloat_guess_idx     #Cut fit interval down to U-I sweep size
 
     #Increase the fit areal and fit Isat, I_b and Te. Te has a global minimum, so once c(Te) increases we can break
-    print '====== Running first fit ========'
+    if not(silent):
+        print '====== Running first fit ========'
     for idx, npoints in enumerate(fit_range):
         a_fit[idx], sigmaA_fit[idx], b_fit[idx], sigmaB_fit[idx], c_fit[idx], sigmaC_fit[idx], RChi2 = uifit(U[vfloat_guess_idx:vfloat_guess_idx+npoints], I[vfloat_guess_idx:vfloat_guess_idx+npoints], nfits=1, offset=0, interval=0, show_plots=False)
-        print '   from lstsq-fit: a=%f pm %f\tb=%f pm %f\tc=%f pm %f, RChi2=%f' % ( a_fit[idx], sigmaA_fit[idx], b_fit[idx], sigmaB_fit[idx], c_fit[idx], sigmaC_fit[idx], RChi2)
+        if not(silent):
+            print '   from lstsq-fit: a=%f pm %f\tb=%f pm %f\tc=%f pm %f, RChi2=%f' % ( a_fit[idx], sigmaA_fit[idx], b_fit[idx], sigmaB_fit[idx], c_fit[idx], sigmaC_fit[idx], RChi2)
     # Choose the fit with the minimum error on temperature
     best_fit_idx = sigmaC_fit.argmin() 
     Te_first = c_fit[best_fit_idx]
-    print '====== Results from first fit ======'
-    print '       Minimum Te=%f, %d points' % ( Te_first, fit_range[best_fit_idx])
+    if not(silent):
+        print '====== Results from first fit ======'
+        print '       Minimum Te=%f, %d points' % ( Te_first, fit_range[best_fit_idx])
     # Compensate for varying sheath thickness
     # Sheath thickness as a function of voltage, compensate for this
     lambdad = 7.43e2*(Te_first/n0)**0.5
@@ -124,7 +142,8 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
     # Do second round if fitting with U-I curve compensated for varying sheath thickness
     for idx, npoints in enumerate(np.arange(fit_min, fit_max+1, fit_step)):
         a_fit[idx], sigmaA_fit[idx], b_fit[idx], sigmaB_fit[idx], c_fit[idx], sigmaC_fit[idx], RChi2 = uifit(U[:vfloat_guess_idx+npoints], I[:vfloat_guess_idx+npoints], nfits=1, offset=0, interval=0, show_plots=False)
-        print '   from lstsq-fit: a=%f pm %f\tb=%f pm %f\tc=%f pm %f, RChi2=%f' % ( a_fit[idx], sigmaA_fit[idx], b_fit[idx], sigmaB_fit[idx], c_fit[idx], sigmaC_fit[idx], RChi2)
+        if not(silent):
+            print '   from lstsq-fit: a=%f pm %f\tb=%f pm %f\tc=%f pm %f, RChi2=%f' % ( a_fit[idx], sigmaA_fit[idx], b_fit[idx], sigmaB_fit[idx], c_fit[idx], sigmaC_fit[idx], RChi2)
     # Choose the best fit: Select the fit with minimal temperature on all fits, where I_sat > 0 and I_b < 0
     neg_isat_idx = np.argwhere(a_fit > 0)                          # 1.) Isat > 0
     neg_ib_idx = np.argwhere(b_fit < 0)                            # 2.) Ib < 0
@@ -135,12 +154,14 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
     # The fit can of course go wrong. If this is the case, raise an error
     # Conditions for a bad fit: (found empirical)
     if ( np.size(good_fit_idx) < 1 ):
-        print 'No fit qualifies, good_fit_idx=', good_fit_idx
+        if not(silent):
+            print 'No fit qualifies, good_fit_idx=', good_fit_idx
         plt.close()
         raise FitException('Bad fit, no fit with positve Isat, negative Ib and Te < 100eV found')
 
     best_fit_idx = sigmaC_fit[good_fit_idx].argmin()
-    print 'Considering only indices:', good_fit_idx, 'best fit at idx%d' % best_fit_idx
+    if not(silent):
+        print 'Considering only indices:', good_fit_idx, 'best fit at idx%d' % best_fit_idx
 
     a_best = (a_fit[good_fit_idx])[best_fit_idx]
     sigmaA_best = (sigmaA_fit[good_fit_idx])[best_fit_idx]
@@ -158,9 +179,10 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
     vfloat_best = Te_best * np.log(-Isat_best / b_best)
     sigma_vfloat = np.sqrt( np.log(-Isat_best/b_best)**2*sigma_Te**2 + Te_best*Te_best*sigma_Isat*sigma_Isat/(Isat_best*Isat_best * np.abs(b_best)) + Te_best**2*sigmaB_best**2/b_best**2)
 
-    print '====Best fit parameters:'
-    print 'a = %f\t, sigmaA = %f\t, b = %f\t, sigmaB = %f\t, c = %f\t, sigmaC = %f' % ( a_best, sigmaA_best, b_best, sigmaB_best, c_best, sigmaC_best)
-    print 'Isat = %f pm %f\tVfloat = %f pm %f\tTe = %f pm %f' % (Isat_best, sigma_Isat, vfloat_best, sigma_vfloat, Te_best, sigma_Te)
+    if not(silent):
+        print '====Best fit parameters:'
+        print 'a = %f\t, sigmaA = %f\t, b = %f\t, sigmaB = %f\t, c = %f\t, sigmaC = %f' % ( a_best, sigmaA_best, b_best, sigmaB_best, c_best, sigmaC_best)
+        print 'Isat = %f pm %f\tVfloat = %f pm %f\tTe = %f pm %f' % (Isat_best, sigma_Isat, vfloat_best, sigma_vfloat, Te_best, sigma_Te)
 
    
     if return_plot:
@@ -196,11 +218,13 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
             continue
         good_isat_region = True
         lin_trend_norm = np.abs(lin_trend / I[isat_indices].mean())
-        print 'Isat region, %d items, Linear trend: %f, <I> = %f, trend/<Isat> = %f' % (np.size(isat_indices), lin_trend, I[isat_indices].mean(), lin_trend_norm)
+        if not(silent):
+            print 'Isat region, %d items, Linear trend: %f, <I> = %f, trend/<Isat> = %f' % (np.size(isat_indices), lin_trend, I[isat_indices].mean(), lin_trend_norm)
         isat_indices = isat_indices[:-num_isat_shrink]
             
     if good_isat_region: 
-        print 'Good isat region on voltages ', U[isat_indices[0]], ':', U[isat_indices[-1]]
+        if not(silent):
+            print 'Good isat region on voltages ', U[isat_indices[0]], ':', U[isat_indices[-1]]
         # This block is executed if we found part of the Isat signal showing only a small trend
         # Remove the remaining linear trend on the Isat region
         isat_region = np.zeros_like(I[isat_indices])
@@ -210,21 +234,27 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
         if ( np.size(isat_indices) > 100 ):
             #  Large enough region, compute moments
             isat_mean = isat_region.mean()
-            isat_rms = isat_region.std() / isat_region.mean()
+            isat_rms = isat_region.std()
+            isat_fluc = isat_rms / isat_mean
             isat_skew = skew(isat_region - isat_mean)
             isat_kurt = kurtosis(isat_region - isat_mean) 
+            num_stationary = np.size(isat_indices)
         else:
             # Region too small, statistics are meaningless
             isat_mean = Isat_best
             isat_rms = -999.9
+            isat_fluc = -999.9
             isat_skew = -999.9
             isat_kurt = -999.9
+            num_stationary = -1
     else:
         # No subintervall in the isat region without a trend could be identified
         isat_mean = Isat_best
         isat_rms = -999.9
+        isat_fluc = -999.9
         isat_skew = -999.9
         isat_kurt = -999.9
+        num_stationary = -1
 
 
     #print 'Length of the isat indices:', np.size(isat_indices), ':', isat_indices
@@ -246,9 +276,9 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
         ax_hist.legend(loc='best')
 
     if return_plot:
-        return isat_mean, isat_rms, isat_skew, isat_kurt, vfloat_best, sigma_vfloat, Te_best, sigma_Te, fig_result
+        return isat_mean, isat_rms, isat_fluc, isat_skew, isat_kurt, vfloat_best, sigma_vfloat, Te_best, sigma_Te, num_stationary, fig_result
     else:
-        return isat_mean, isat_rms, isat_skew, isat_kurt, vfloat_best, sigma_vfloat, Te_best, sigma_Te
+        return isat_mean, isat_rms, isat_fluc, isat_skew, isat_kurt, vfloat_best, sigma_vfloat, Te_best, sigma_Te, num_stationary
 
 
 def uifit(U, I_fit, nfits=4, offset = 1, interval = 20, show_plots = False):
@@ -278,8 +308,8 @@ def uifit(U, I_fit, nfits=4, offset = 1, interval = 20, show_plots = False):
     #I_fun = lambda U, V_float, T_e, I_sat : I_sat* ( np.exp( (U-V_float)/T_e) - 1.0)
     # Create an artificial U-I characteristic with random noise superposed
     npoints = np.size(U)
-
-    print 'U-I curve %d points' % (npoints)
+    
+    #print 'U-I curve %d points' % (npoints)
 
     # Prepare input for U-I fit in python. These need to be created as
     # ctypes objects valid references to them can be created later
