@@ -149,6 +149,12 @@ class binning_container(object):
     def get_num_bins(self):
         return len(self.num_bins)
 
+    def cond_var(self, bin_idx=None):
+        # Compute the conditional variance, see Oynes et al. PRL 75, 81
+        # (1995)
+
+        pass
+
     def __getitem__(self, idx):
         if (self.mode == 'add'):
             return self.bins[idx]

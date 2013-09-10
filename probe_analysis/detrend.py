@@ -24,7 +24,7 @@ def detrend(timeseries, radius=16384, blocksize=128):
 
     # Filter radius has to be a multiple of the blocksize
     assert(radius % blocksize == 0)
-    ma_lib = ctypes.cdll.LoadLibrary('/Users/ralph/source/cuda/stencil_threaded.so')
+    ma_lib = ctypes.cdll.LoadLibrary('/Users/ralph/source/running_ma/stencil_threaded.so')
 
     # Crop input of the MA filter
     len_input = np.size(timeseries)
@@ -70,11 +70,11 @@ def detrend(timeseries, radius=16384, blocksize=128):
 
     # Declar input data for RMS
     indata_rms = np.zeros_like(ma_out)
-    indata_rms[:] = timeseries[radius : len_ma_input - radius] - ma_out
+    indata_rms[:] = timeseries[radius:len_ma_input - radius] - ma_out
     c_rms_in = ctypes.c_void_p(indata_rms.ctypes.data)
     result_rms = ma_lib.rms_cuda(c_rms_in, c_rms_out, c_len_rms_output)
 
-    detrended = (ts_cropped[2*radius : -2*radius] - ma_out[radius : -1*radius]) / rms_out
+    detrended = (ts_cropped[2 * radius:-2 * radius] - ma_out[radius:-1 * radius]) / rms_out
 
     return detrended, cropped
- #
+ #End of file detrend.py
