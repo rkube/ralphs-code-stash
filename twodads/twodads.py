@@ -10,7 +10,6 @@ class strval_pair:
         # Initialize with type and value
         self.typeval = typeval
         self.val = val
-        print 'new strval, typeval:', typeval, 'val=', val
 
     def update(self, newval):
         """Update, with type conversion"""
@@ -23,10 +22,13 @@ class strval_pair:
                 self.val = self.typeval(newval)
             except:
                 raise TypeError('%s is not of type %s' % (type(newval),
-                                                        self.typeval))
+                                                          self.typeval))
 
     def gettype(self):
         return self.typeval
+
+    def getval(self):
+        return self.val
 
     def __str__(self):
         """string representation as to be put in output file"""
@@ -92,6 +94,6 @@ class input:
 
 
     def __getitem__(self, key):
-        return self.keys[key]
+        return self.keys[key].getval()
 
 # End of file twodasd.py
