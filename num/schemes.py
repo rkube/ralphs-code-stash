@@ -94,5 +94,6 @@ def ab2_cd(CFL, uold1, uold2, unew):
     unew[-1] = uold1[-1] - 1.5 * CFL * (uold1[-1] - uold1[-2]) +\
         0.5 * CFL * (uold2[-1] - uold2[-2])
 
+    return unew
 
-# End of file schemes.py
+#End of file schemes.py

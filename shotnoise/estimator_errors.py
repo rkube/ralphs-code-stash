@@ -45,24 +45,50 @@ def mse_var_sn(A, alpha, gamma, n_rg):
     """
 
     alpha2 = alpha * alpha
-    #gamma = tau_d / tau_w
     gamma2 = gamma * gamma
     n_rg2 = n_rg * n_rg
 
-    #print 'tau_d = %f, tau_w = %f, delta_t = %f, alpha = %f' % (tau_d, tau_w,
-    #                                                            delta_t,
-    #                                                            alpha)
+    part1 = (2. / (n_rg * alpha)) + (-5. + 8. * np.exp(-n_rg * alpha)
+                                     + np.exp(-2. * alpha * n_rg)) / (n_rg2 * alpha2)
+    part2 = (6. / (n_rg * alpha)) + (-27. + 3. * np.exp(-n_rg * alpha)) / (n_rg2 * alpha2)
 
-    part1 = gamma2 * (2.0 / alpha) + gamma * 6.0 / alpha
-    part2 = gamma * (3. * np.exp(-2.0 * n_rg * alpha) - 27.) / alpha2 + \
-            gamma2 * (-1. +
-                      2. * np.exp(-2.0 * n_rg * alpha) -
-                      12. * np.exp(-1.0 * n_rg * alpha))
+    part1 = part1 * gamma2
+    part2 = part2 * gamma
 
-    part1 = part1 / n_rg
-    part2 = part2 / n_rg2
+    #part1 = gamma2 * (2.0 / alpha) + gamma * 6.0 / alpha
+    #part2 = gamma * (3. * np.exp(-2.0 * n_rg * alpha) - 27.) / alpha2 + \
+    #        gamma2 * (-1. +
+    #                  2. * np.exp(-2.0 * n_rg * alpha) -
+    #                  12. * np.exp(-1.0 * n_rg * alpha))
+
+    #part1 = part1 / n_rg
+    #part2 = part2 / n_rg2
 
     result = A * A * A * A * (part1 + part2)
+    return result
+
+
+def mse_corr_mu_sigma(A, alpha, gamma, n_rg):
+    """
+    Compute the correlation between \hat{mu} and \hat{\sigma^2} for a shot
+    noise process.
+    See eval_threepoint_ijk.nb for calculations
+    """
+    alpha2 = alpha * alpha
+    alpha3 = alpha2 * alpha
+    gamma2 = gamma * gamma
+    exp_alpha = np.exp(-alpha * n_rg)
+    exp_two_alpha = np.exp(-2.0 * alpha * n_rg)
+
+    part1 = gamma2 * (4. * (1. - exp_alpha) /
+                      (alpha2 * n_rg * n_rg))
+    part2 = gamma * (3. / (n_rg * alpha)
+                     + (-17. + 4. * exp_alpha + exp_two_alpha)
+                     / (2. * alpha2 * n_rg * n_rg)
+                     + (9. - 12. * exp_alpha + 3. * exp_two_alpha)
+                     / (alpha3 * n_rg * n_rg * n_rg))
+
+    result = A * A * A * (part1 + part2)
     return result
 
 
