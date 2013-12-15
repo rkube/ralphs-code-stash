@@ -91,6 +91,7 @@ def detect_peaks_1d(timeseries, delta_peak, threshold, peak_width=5):
     return max_idx_copy
 
 
+
 def detect_peaks_1d_old(timeseries, delta_peak, threshold, peak_width=5):
     """
     detect_peaks_1d
