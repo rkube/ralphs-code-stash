@@ -18,19 +18,22 @@ def sattin(n, p):
 
 
 def lognorm_s(n, p):
-    """ Lognormal distribution, definition from Sattin.
-        Uses a superfluous parameter F0."""
+    """
+    Lognormal distribution, definition from Sattin.
+        Uses a superfluous parameter F0.
+    """
     F0, n0, sigma = p
     retval = F0 * np.exp(-0.5 * (np.log(n / n0) / sigma) ** 2.) / n
     return (retval)
 
 
 def lognorm(x, p):
-    """ Lognormal distribution, see:
-        https://en.wikipedia.org/wiki/Log-normal_distribution.
-        Connection to lognorm_s:
-        F0 = 1 / (sqrt(2. * np.pi) * sigma)
-
+    """
+    Lognormal distribution, see:
+    https://en.wikipedia.org/wiki/Log-normal_distribution.
+    Connection to lognorm_s:
+    F0 = 1 / (sqrt(2. * np.pi) * sigma)
+    Insted of using this one, use the lognormal distribution in scipy.stats
     """
     shape, scale = p
     part1 = 1. / (np.sqrt(2. * np.pi) * x * shape)
@@ -39,20 +42,23 @@ def lognorm(x, p):
     return (part1 * part2)
 
 
-def gamma(Phi, p):
-    """Gamma distribution for shot-noise process in terms of gamma and <A>. """
-    Amean, g = p
-    retval = 1. / (Amean * gamma_func(g)) * (Phi / Amean) ** (g - 1.) *\
-        np.exp(-Phi / Amean)
-    return retval
+#def gamma(Phi, p):
+#    """Gamma distribution for shot-noise process in terms of gamma and <A>. """
+#    Amean, g = p
+#    retval = 1. / (Amean * gamma_func(g)) * (Phi / Amean) ** (g - 1.) *\
+#        np.exp(-Phi / Amean)
+#    return retval
 
 
 #def gamma_ss(Phi, shape, scale):
-def gamma_ss(x, p):
-    """ Gamma distribution for shot-noise process in terms of
-        shape and scale parameter.
-        shape: gamma = <Phi>^2/Phi_rms^2
-        scale: Phi_rms^2 / <Phi>
+def gamma_sn(x, p):
+    """
+    Gamma distribution for shot-noise process in terms of
+    shape and scale parameter.
+    shape: gamma = <Phi>^2/Phi_rms^2
+    scale: Phi_rms^2 / <Phi>
+    PDF(Phi) = 1 / (scale * Gamma(shape)) * (x/scale) ** (shape - 1) *
+                exp(-x / scale)
     """
     shape, scale = p
     #print 'gamma_ss: shape = %f, scale = %f' % (shape, scale)

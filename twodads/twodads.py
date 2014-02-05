@@ -42,7 +42,7 @@ class strval_pair:
             return self.typeval.__str__()
 
 
-class input:
+class input2d:
     """ Class interface to 2dads input.ini"""
 
     def __init__(self, simdir=None):
@@ -55,6 +55,8 @@ class input:
                      'Nx': strval_pair(int, 64),
                      'My': strval_pair(int, 64),
                      'scheme': strval_pair(str, 'ss4'),
+                     'Lx': strval_pair(float, 0.0),
+                     'Ly': strval_pair(float, 0.0),
                      'tlevs': strval_pair(int, 4),
                      'deltat': strval_pair(float, 1e-3),
                      'tend': strval_pair(float, 1e1),
@@ -79,15 +81,25 @@ class input:
             with open(filename) as infile:
                 for line in infile.readlines():
                     self.update_dict(self.keys, line)
+            self.keys['Lx'].update(self.keys['xright'].getval() - self.keys['xleft'].getval())
+            self.keys['Ly'].update(self.keys['yup'].getval() - self.keys['ylow'].getval())
+            # Convert list of strings gfrom initial_conditions to list of
+            # doubles
+            #self.keys['initial_conditions'].update([float(x) for x in ''.join(self.keys['initial_conditions'])])
             print 'Done parsing input'
         else:
-            print 'No simdir passed'
+            print 'Simulation directory not set'
 
     def update_dict(self, keys, line):
         update_key = line[:line.index('=')].strip()
         if update_key not in self.keys.keys():
             raise NameError('%s it not a valid key' % (update_key))
-        update_val = line[line.index('=') + 1:].strip()
+        if update_key in ['initial_conditions', 'model_params']:
+            print 'key = %s' % update_key , ',update_val :', line[line.index('=') + 1:].strip()
+            dummy = line[line.index('=') + 1:].strip()
+            update_val = [float(s) for s in dummy.split(' ')]
+        else:
+            update_val = line[line.index('=') + 1:].strip()
 
         # Cast string to correct type
         self.keys[update_key].update(update_val)
