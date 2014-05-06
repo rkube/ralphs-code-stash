@@ -68,10 +68,13 @@ class input2d:
                      'omega_rhs': strval_pair(str, 'omega_rhs'),
                      'log_theta': strval_pair(int, 1),
                      'init_function': strval_pair(str, 'theta_gaussian'),
-                     'initial_conditions': strval_pair(list, [1, 1, 0, 0, 1, 1]),
-                     'model_params': strval_pair(list, [1, 1e-3, 1e-3, 0, 0, 1]),
+                     'initial_conditions': strval_pair(list,
+                                                       [1, 1, 0, 0, 1, 1]),
+                     'model_params': strval_pair(list,
+                                                 [1, 1e-3, 1e-3, 0, 0, 1]),
                      'output': strval_pair(list, ['theta', 'omega', 'strmf']),
-                     'diagnostics': strval_pair(list, ['energy', 'blobs', 'probes']),
+                     'diagnostics': strval_pair(list,
+                                                ['energy', 'blobs', 'probes']),
                      'nthreads': strval_pair(int, 1)}
 
         if simdir is not None:
@@ -81,11 +84,10 @@ class input2d:
             with open(filename) as infile:
                 for line in infile.readlines():
                     self.update_dict(self.keys, line)
-            self.keys['Lx'].update(self.keys['xright'].getval() - self.keys['xleft'].getval())
-            self.keys['Ly'].update(self.keys['yup'].getval() - self.keys['ylow'].getval())
-            # Convert list of strings gfrom initial_conditions to list of
-            # doubles
-            #self.keys['initial_conditions'].update([float(x) for x in ''.join(self.keys['initial_conditions'])])
+            self.keys['Lx'].update(self.keys['xright'].getval() -
+                                   self.keys['xleft'].getval())
+            self.keys['Ly'].update(self.keys['yup'].getval() -
+                                   self.keys['ylow'].getval())
             print 'Done parsing input'
         else:
             print 'Simulation directory not set'
@@ -93,9 +95,10 @@ class input2d:
     def update_dict(self, keys, line):
         update_key = line[:line.index('=')].strip()
         if update_key not in self.keys.keys():
-            raise NameError('%s it not a valid key' % (update_key))
+            print '%s is not a valid key... skipping' % (update_key)
+            return
+            #raise NameError('%s it not a valid key' % (update_key))
         if update_key in ['initial_conditions', 'model_params']:
-            print 'key = %s' % update_key , ',update_val :', line[line.index('=') + 1:].strip()
             dummy = line[line.index('=') + 1:].strip()
             update_val = [float(s) for s in dummy.split(' ')]
         else:
@@ -103,7 +106,6 @@ class input2d:
 
         # Cast string to correct type
         self.keys[update_key].update(update_val)
-
 
     def __getitem__(self, key):
         return self.keys[key].getval()

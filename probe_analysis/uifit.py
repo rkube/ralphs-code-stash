@@ -15,7 +15,7 @@ class FitException(BaseException):
         self.value = value
     def __str__(self):
         return repr(self.value)
-    
+
 def ui_fun(U, Isat, Vfloat, Te):
     """Theoretical U-I curve"""
     return Isat * (np.exp( (U-Vfloat)/Te) - 1.0)
@@ -44,7 +44,7 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
         ne          Particle density
         Isat:       Ion saturation current
         Te:         Electron temperature
-    
+
     Return lines:
         isat_mean:          Mean of isat on the stationary region
         isat_rms:           RMS of isat on the stationary region
@@ -121,7 +121,7 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
         if not(silent):
             print '   from lstsq-fit: a=%f pm %f\tb=%f pm %f\tc=%f pm %f, RChi2=%f' % ( a_fit[idx], sigmaA_fit[idx], b_fit[idx], sigmaB_fit[idx], c_fit[idx], sigmaC_fit[idx], RChi2)
     # Choose the fit with the minimum error on temperature
-    best_fit_idx = sigmaC_fit.argmin() 
+    best_fit_idx = sigmaC_fit.argmin()
     Te_first = c_fit[best_fit_idx]
     if not(silent):
         print '====== Results from first fit ======'
@@ -150,7 +150,7 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
     large_te_idx = np.argwhere((c_fit > 10.) & (c_fit < 130.))     # 3.) 5 < Te < 100
     # The fits we consider are in the intersection of these arrays
     good_fit_idx = np.intersect1d(large_te_idx, np.intersect1d( neg_isat_idx, neg_ib_idx))
-    
+
     # The fit can of course go wrong. If this is the case, raise an error
     # Conditions for a bad fit: (found empirical)
     if ( np.size(good_fit_idx) < 1 ):
@@ -184,7 +184,7 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
         print 'a = %f\t, sigmaA = %f\t, b = %f\t, sigmaB = %f\t, c = %f\t, sigmaC = %f' % ( a_best, sigmaA_best, b_best, sigmaB_best, c_best, sigmaC_best)
         print 'Isat = %f pm %f\tVfloat = %f pm %f\tTe = %f pm %f' % (Isat_best, sigma_Isat, vfloat_best, sigma_vfloat, Te_best, sigma_Te)
 
-   
+
     if return_plot:
         ax_res1.plot(U, I, '.g', label='Probe data, probe_A compensated')
         ax_res1.plot(U, nlin_fitfun(U, a_best, b_best, c_best), label='Fit: a=%f, b=%f, c=%f' % (a_best, b_best, c_best) )
@@ -192,7 +192,7 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
         ax_res1.legend(loc='lower left')
 
     # Last part. Compute statistics for I in the Isat region. We need a detrended Isat region.
-    # The criterion for a detrended Isat region is: Let the trend in this region be given by T = m*U + n 
+    # The criterion for a detrended Isat region is: Let the trend in this region be given by T = m*U + n
     # Then the trend m is much smaller than the mean on this interval: m / <I> < epsilon
     # Compute mean, rms, skewness and kurtosis on minimum 100 points. If the isat region
     # still shows a significant trend, this is a bad fit.
@@ -221,14 +221,14 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
         if not(silent):
             print 'Isat region, %d items, Linear trend: %f, <I> = %f, trend/<Isat> = %f' % (np.size(isat_indices), lin_trend, I[isat_indices].mean(), lin_trend_norm)
         isat_indices = isat_indices[:-num_isat_shrink]
-            
-    if good_isat_region: 
+
+    if good_isat_region:
         if not(silent):
             print 'Good isat region on voltages ', U[isat_indices[0]], ':', U[isat_indices[-1]]
         # This block is executed if we found part of the Isat signal showing only a small trend
         # Remove the remaining linear trend on the Isat region
         isat_region = np.zeros_like(I[isat_indices])
-        isat_region[:] = I[isat_indices] - U[isat_indices] * lin_trend 
+        isat_region[:] = I[isat_indices] - U[isat_indices] * lin_trend
 
         # Compute statistics in the isat signal
         if ( np.size(isat_indices) > 100 ):
@@ -237,7 +237,7 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
             isat_rms = isat_region.std()
             isat_fluc = isat_rms / isat_mean
             isat_skew = skew(isat_region - isat_mean)
-            isat_kurt = kurtosis(isat_region - isat_mean) 
+            isat_kurt = kurtosis(isat_region - isat_mean)
             num_stationary = np.size(isat_indices)
         else:
             # Region too small, statistics are meaningless
@@ -266,9 +266,9 @@ def uifit_minTE(U, I, fit_min=100, fit_max=300, fit_step=10, probe_a = 9.6e-7, n
         ax_sig.set_ylabel('probe current/A')
         ax_sig.plot(U[isat_indices], I[isat_indices], label='Probe')
         ax_sig.plot(U[isat_indices], U[isat_indices]*lin_trend + offset, 'k', label='linear trend')
-        ax_sig.plot(U[isat_indices], isat_region, 'g', label='Detrended') 
-        ax_sig.legend(loc='best') 
-    
+        ax_sig.plot(U[isat_indices], isat_region, 'g', label='Detrended')
+        ax_sig.legend(loc='best')
+
         hist, edges = np.histogram(isat_region, bins = int(np.round(float(np.size(isat_region))/20.)) )
         ax_hist.plot( edges[:-1] + (edges[1:] - edges[:-1])*0.5, hist, 'b.', label='detrended, mean=%3.2f, rms=%3.2f, s=%3.2f, k=%3.2f' % ( isat_mean, isat_rms, isat_skew, isat_kurt) )
         ax_hist.set_xlabel('detrended Isat /A')
@@ -308,7 +308,7 @@ def uifit(U, I_fit, nfits=4, offset = 1, interval = 20, show_plots = False):
     #I_fun = lambda U, V_float, T_e, I_sat : I_sat* ( np.exp( (U-V_float)/T_e) - 1.0)
     # Create an artificial U-I characteristic with random noise superposed
     npoints = np.size(U)
-    
+
     #print 'U-I curve %d points' % (npoints)
 
     # Prepare input for U-I fit in python. These need to be created as
@@ -334,11 +334,11 @@ def uifit(U, I_fit, nfits=4, offset = 1, interval = 20, show_plots = False):
     cMin     = ctypes.c_double(1.0)
     cMax     = ctypes.c_double(150.0)
     Xacc     = ctypes.c_double(0.001)
-    MaxIter  = ctypes.c_int(1000) 
+    MaxIter  = ctypes.c_int(1000)
     Iter     = ctypes.c_int(0)
     Error    = ctypes.c_int(0)
 
-    
+
     # Create references to fit parameters
     f_m = ctypes.byref(m)                             #      integer, intent(in) :: m                      Number of data points in x,y array
     f_npts_end = ctypes.byref(npts_end)               #      integer, intent(in) :: npts_end               Number of end points for different fit intervalls
@@ -380,4 +380,4 @@ def uifit(U, I_fit, nfits=4, offset = 1, interval = 20, show_plots = False):
 
 
 
-
+# end of file uifit.py

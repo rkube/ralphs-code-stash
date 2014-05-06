@@ -17,7 +17,7 @@ def fit_burst_shape(waveform, dt):
     Input:
     ======
     waveform:   array_like, size: 2*N+1. Waveform with burst peak at element N
-    dt:         timebase
+    dt:         timebase, in microseconds
 
     Output:
     =======
@@ -60,7 +60,7 @@ def fit_burst_shape(waveform, dt):
         err_str = 'Least squares fit on fall returned success=%d' % success
         raise ValueError(err_str)
 
-    return [p_rise[1], p_fall[1]]
+    return [p_rise, p_fall]
 
 
 # End of file fit_burst_shape.py

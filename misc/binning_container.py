@@ -104,11 +104,11 @@ class binning_container(object):
         # Perform boundary checks of rv against the upper and lower bin
         # boundary
         if (rv > self.bin_max):
-            raise ValueError('Could not bin array: %f > max(bin_edges)' %
-                             array.max())
+            raise ValueError('Could not bin array: %f > max(bin_edges)' % rv)
+
         if (rv < self.bin_min):
-            raise ValueError('Could not bin array: %f < min(bin_edges)' %
-                             array.min())
+            #raise ValueError('Could not bin array: %f < min(bin_edges)' % rv)
+            raise ValueError('Could not bin array: %f < %f' % (rv, self.bin_min))
         #try:
         #    # If feval_array is not specified, the line below raises an
         #    # AttributeError
