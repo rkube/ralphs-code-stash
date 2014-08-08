@@ -91,6 +91,49 @@ def detect_peaks_1d(timeseries, delta_peak, threshold, peak_width=5):
     return max_idx_copy
 
 
+def detect_peaks_1d_fast(timeseries, delta_peak, threshold, peak_width=5):
+    """
+    detect_peaks_1d_fast
+
+    Detect peaks in a time series, linear with number of elements
+
+    Input:
+    ========
+    timeseries:     Timeseries to scan for peaks, np.ndarray
+    delta_peak:     Minimum separation of peaks, integer
+    threshold:      Minimum value of a local maximum to qualify as a peak
+    peak_width:     Number of neighbouring elements a peak has to exceed
+
+    Output:
+    ========
+    peak_idx_list:   Indices of peaks in the timeseries, np.ndarray
+
+    Traverse the timeseries from delta_peak:-delta_peak.
+    If any given point is a local maximu, separated at least by delta_peak to the
+    next larger ocal maximum, accept it as a peak
+    """
+
+    peak_idx = np.zeros(timeseries.shape[0], dtype='int')
+    peak_idx[:] = -1
+
+    num_peaks = 0
+    for idx in np.arange(delta_peak, timeseries.shape[0] - delta_peak):
+        if(timeseries[idx] < threshold):
+            continue
+        if(timeseries[idx] < timeseries[idx - peak_width : idx + peak_width]).any():
+            continue
+        peak_idx[num_peaks] = idx
+        num_peaks += 1
+        #print 'found peak %d at %d' % (num_peaks, idx)
+
+    peak_idx = peak_idx[:num_peaks]
+
+    # Find indices that sort the peaks
+    peak_sort_idx = np.squeeze(timeseries[peak_idx].argsort())[::-1]
+    peak_idx = peak_idx[peak_sort_idx]
+
+    return peak_idx
+
 
 def detect_peaks_1d_old(timeseries, delta_peak, threshold, peak_width=5):
     """
