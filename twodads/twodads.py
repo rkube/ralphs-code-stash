@@ -57,6 +57,8 @@ class input2d:
                      'scheme': strval_pair(str, 'ss4'),
                      'Lx': strval_pair(float, 0.0),
                      'Ly': strval_pair(float, 0.0),
+                     'deltax': strval_pair(float, 0.0),
+                     'deltay': strval_pair(float, 0.0),
                      'tlevs': strval_pair(int, 4),
                      'deltat': strval_pair(float, 1e-3),
                      'tend': strval_pair(float, 1e1),
@@ -88,6 +90,10 @@ class input2d:
                                    self.keys['xleft'].getval())
             self.keys['Ly'].update(self.keys['yup'].getval() -
                                    self.keys['ylow'].getval())
+            self.keys['deltax'].update(self.keys['Nx'].getval() /\
+                                       self.keys['Lx'].getval())
+            self.keys['deltay'].update(self.keys['My'].getval() /\
+                                       self.keys['Ly'].getval())
             print 'Done parsing input'
         else:
             print 'Simulation directory not set'
