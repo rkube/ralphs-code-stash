@@ -22,13 +22,17 @@ def ui_fun(U, Isat, Vfloat, Te):
     """Theoretical U-I curve"""
     return Isat * (np.exp((U - Vfloat) / Te) - 1.0)
 
-def sort_IV(I_raw, U_raw):
+
+fit_func = lambda U, a, b, c: a + b * np.exp(U / c)
+
+
+def sort_IV(I_raw, V_raw):
     """
     Sort input data from positive to negative currents
     """
 
     I_data = np.zeros_like(I_raw)
-    V_data = np.zeros_like(U_raw)
+    V_data = np.zeros_like(V_raw)
 
     sort_idx = I_raw.argsort()
     I_data[:] = I_raw[sort_idx][::-1]
@@ -37,8 +41,9 @@ def sort_IV(I_raw, U_raw):
     return I_data, V_data
 
 
-def do_UI_fit(U_data, I_data, one_over_probeA, Isat_est,
-              nVknee=3, Ie_ratio=2.0, min_Ie_ratio=0.5, it=0):
+def do_UI_fit(volt, I_data, Isat_est, npts_Isat,
+              nVknee=3, Ie_ratio=2.0, min_Ie_ratio=0.5, it=0,
+              show_plot=False, debug=False):
 
     """
     Given current and voltage on a langmuir probe, attempt a range
@@ -73,27 +78,25 @@ def do_UI_fit(U_data, I_data, one_over_probeA, Isat_est,
 
     # Set up Ie_ratio for first fit. Fit only on I values exceeding Ie_ratio
     Ie_ratio = min(Ie_ratio, -0.5 * I_data.min() / Isat_est)
-    print "nelem = %d, nVknee = %d, Ie_ratio = %e" % (nelem, nVknee, Ie_ratio)
-
-    print 'Fit boundaries (units of Isat):'
     Ie_set = np.linspace(-min_Ie_ratio, -2 * Ie_ratio, nVknee) * Isat_est
-    print Ie_set
 
     # Check if the intervall defined by each Ie contains more points
     # than points were used to guess Isat
     num_fit_pts = np.zeros(nVknee, dtype='i4')
-    #for idx, s in enumerate(Ie_set):
-    #    num_fit_pts[idx] = int((I_data > s).sum())
     for idx in np.arange(nVknee):
         num_fit_pts[idx] = int((I_data > Ie_set[idx]).sum())
-    print 'Number of points to fit:'
-    print num_fit_pts
+
+    if(debug):
+        print "nelem = %d, nVknee = %d, Ie_ratio = %e" % (nelem, nVknee,
+                                                          Ie_ratio)
+        print 'Fit boundaries (units of Isat):', Ie_set
+        print 'Number of points to fit: ', num_fit_pts
 
     # Abort if less then 3 fit ranges are identified that exceed th number of
     # points used to estimate the ion saturation current
     if ((num_fit_pts > npts_Isat).sum() < 4):
         npts_exceed = (num_fit_pts > npts_Isat).sum()
-        err_str = "Number of points used to estimate isat = %d\n" % (npts_Isat)
+        err_str = "Number of points used to estimate Isat = %d\n" % (npts_Isat)
         err_str = "Number of fit ranges exceeding npts_Isat: %d\n" %\
             (npts_exceed)
         err_str = "Increase Ie_ratio (passed: %f)\n" % (Ie_ratio)
@@ -106,17 +109,15 @@ def do_UI_fit(U_data, I_data, one_over_probeA, Isat_est,
     #
     #TeBounds = 149.
     #Te_guess = 10.0
-    res = call_uifit(V_data, I_data, num_fit_pts)
-    isat_set, sigma_is_set, ib_set, sigma_ib_set, Te_set, sigma_Te_set, chi2_set, err_set = res
-
-    #for idx, npts in enumerate(num_fit_pts):
-    for idx in np.arange(nVknee):
-        npts = num_fit_pts[idx]
-        plt.figure()
-        plt.plot(V_data, I_data, 'k.')
-        plt.plot(V_data[:npts], I_data[:npts], 'r.')
-        plt.plot(V_data[:npts], fit_func(V_data[:npts], isat_set[idx],
-                                         ib_set[idx], Te_set[idx]), 'g.')
+    res = call_uifit(volt, I_data, num_fit_pts)
+    Isat_set = res[0]
+    sigma_Is_set = res[1]
+    Ib_set = res[2]
+    sigma_Ib_set = res[3]
+    Te_set = res[4]
+    sigma_Te_set = res[5]
+    chi2_set = res[6]
+    err_set = res[7]
 
     #
     #####################################################################
@@ -126,85 +127,150 @@ def do_UI_fit(U_data, I_data, one_over_probeA, Isat_est,
 
     # Good fits require err=0 and Isat > 0. Weed out bad fits
     # and exit if all fits are bad
-    good_fit_idx = (err_set == 0) & (isat_set > 0.0)
+    good_fit_idx = (err_set == 0) & (Isat_set > 0.0)
     if(good_fit_idx.sum() == 0):
         err_str = 'No good fits (err != 0). aborting\n'
         raise FitException(err_str)
 
     best_Te_idx = sigma_Te_set.argmin()
-    isat = isat_set[best_Te_idx]
-    sigma_isat = sigma_is_set[best_Te_idx]
-    ib = ib_set[best_Te_idx]
-    sigma_ib = sigma_ib_set[best_Te_idx]
+    Isat = Isat_set[best_Te_idx]
+    sigma_Isat = sigma_Is_set[best_Te_idx]
+    Ib = Ib_set[best_Te_idx]
+    sigma_Ib = sigma_Ib_set[best_Te_idx]
     Te = Te_set[best_Te_idx]
     sigma_Te = sigma_Te_set[best_Te_idx]
     RChi2 = chi2_set[best_Te_idx]
     npts = num_fit_pts[best_Te_idx]
 
-    bad_fit_coeff = (isat < 0.0) | (ib > 0.0)
+    bad_fit_coeff = (Isat < 0.0) | (Ib > 0.0)
 
     if bad_fit_coeff:
         err_str = 'FastExpRange returned\n'
-        err_str += 'Isat = %f (must be >= 0.0)\n' % (isat)
-        err_str += 'Ib = %f (must be < 0.0\n' % (ib)
+        err_str += 'Isat = %f (must be >= 0.0)\n' % (Isat)
+        err_str += 'Ib = %f (must be < 0.0\n' % (Ib)
         err_str += 'Te = %f\n' % (Te)
-
         raise FitException(err_str)
 
-    return (isat, sigma_isat, ib, sigma_ib, Te, sigma_Te, RChi2, npts)
+    fig = None
+    if show_plot:
+        volt_sort = np.zeros_like(volt)
+        volt_sort[:] = volt[:]
+        volt_sort.sort()
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(volt, I_data, 'k.')
+        ax.set_xlabel('voltage / V')
+        ax.set_ylabel('current / A')
+        str_title = 'loop = %d, isat_est = %4.2e' % (it, Isat_est)
+        ax.set_title(str_title)
+        for idx in np.arange(nVknee):
+            label_fit = 'npts=%d, Isat=%4.2e, Ib=%4.2e, Te=%4.2e' %\
+                (npts, Isat_set[idx], Ib_set[idx], Te_set[idx])
+            label_fit += ', sigma_Te = %4.2f' % sigma_Te_set[idx]
+            npts = num_fit_pts[idx]
+
+            if(idx == best_Te_idx):
+                lw = 3
+                label_fit += ' ***best'
+            else:
+                lw = 1
+            npts = num_fit_pts[idx]
+
+            ax.plot(volt_sort[:npts], fit_func(volt_sort[:npts], Isat_set[idx],
+                                               Ib_set[idx], Te_set[idx]),
+                    label=label_fit, lw=lw)
+        ax.legend(loc='lower left')
+
+    return (Isat, sigma_Isat, Ib, sigma_Ib, Te, sigma_Te, RChi2, npts, fig)
 
 
-def remove_linear_trend(raw_U, raw_I, isat_seg_idx, V_float, Te):
+def remove_linear_trend(V_raw, I_raw, Isat_seg_idx, Isat, ib, V_float, Te,
+                        loop=0, show_plot=False, debug=False):
 
     """
+    Remove a linear trend in the current region
     If exising, remove a linear trend on the current in the region
-    where the probe is in ion saturation current.
+    where the probe is in ion saturation mode
     """
 
-    # Compute I_fit fir isat_seg to see if it is good for trend removal
-    isat_V = raw_U[isat_seg_idx]
-    isat_I = raw_I[isat_seg_idx]
-    isat_trend = isat + ib * np.exp(isat_V / Te)
-    isat_norm = isat_I / isat_trend
-    isat_RMS = np.sqrt(((isat_norm - 1.0) ** 2.0).sum()) / isat_norm.size
+    good_fit = False
 
-    print 'From exponential model:'
-    print 'isat_rms = %f' % isat_RMS
+    ##################################################################
+    # Determine current and voltage range in which we are in ion saturation
+    # regime
+    ########################################################################
+    #
+    V_Isat = V_raw[Isat_seg_idx]
+    I_Isat = I_raw[Isat_seg_idx]
+    #print 'I_Isat.mean() = %f' % I_Isat.mean()
+    Isat_trend = Isat + ib * np.exp(V_Isat / Te)
+    Isat_norm = I_Isat / Isat_trend
+    Isat_RMS = np.sqrt(((Isat_norm - 1.0) ** 2.0).sum()) / Isat_norm.size
+    label_exp = 'Exponential: Isat_rms = %4.2e' % (Isat_RMS)
 
-    # Compute linear trend on isat region
-    A = np.vstack([isat_V, np.ones_like(isat_V)]).T
-    m, n = np.linalg.lstsq(A, isat_I)[0]
+    #
+    ##################################################################
+    # Attempt a linear fit on the current in the ion sat. regime
+    ##################################################################
+    #
+    try:
+        A = np.vstack([V_Isat, np.ones_like(V_Isat)]).T
+        m, n = np.linalg.lstsq(A, I_Isat)[0]
+    except np.LinAlgError:
+        if(debug):
+            print '******** uifit.remove_linear_trend():'
+            print '******** Linear fit in Isat regime failed.'
+            print '******** Using mean to remove trend'
+        m = 1.0
+        n = 0.0
 
-    print 'Linear fit: m = %f, n = %f' % (m, n)
-
-    if m <= 0.0:
+    if m < -1e-6:
         #
-        # Negative linear trend found, use it
+        ##################################################################
+        # If we have a negative slope, assume it is a good fit and use it for
+        # trend remove of the sheath expansion
+        ##################################################################
         #
-        isat_trend2 = m * isat_I + n
-        isat_norm2 = isat_I / isat_trend2
-        isat_RMS2 = (np.sqrt(((isat_norm2 - 1.0) ** 2.0).sum()) /
-                     isat_norm2.size)
+        Isat_trend2 = m * I_Isat + n
+        Isat_norm2 = I_Isat / Isat_trend2
+        Isat_RMS2 = (np.sqrt(((Isat_norm2 - 1.0) ** 2.0).sum()) /
+                     Isat_norm2.size)
+        label_lin = 'Linear (slope): Isat_rms = %4.2e' % (Isat_RMS2)
         good_fit = True
-        print 'From linear model:'
-        print 'isat_rms = %f' % isat_RMS2
     else:
         #
-        # Positive trend found, use mean as trend
+        ##################################################################
+        # If we have a positive slope, giv values to remove the trend with
+        # the mean current in the ion saturation segment
+        ####################################################################
         #
-        isat_trend2 = isat_I.mean()
-        if(isat_trend2 < 0.0):
-            err_str = "Using isat_trend2 = mean gives negative trend"
+        Isat_trend2 = I_Isat.mean() * np.ones_like(I_Isat)
+        if(Isat_trend2[0] < 0.0):
+            # We should not have a negative ion saturation current!
+            err_str = "Using Isat_trend2 = I_Isat.mean() gives negative trend"
             raise FitException(err_str)
-        isat_norm2 = isat_I / isat_trend2
-        isat_RMS2 = (np.sqrt(((isat_norm2 - 1.0) ** 2.0).sum()) /
-                     isat_norm2.size)
-        print 'From linear model (using mean):'
-        print 'isat_rms = %f' % isat_RMS2
+        Isat_norm2 = I_Isat / Isat_trend2
+        Isat_RMS2 = (np.sqrt(((Isat_norm2 - 1.0) ** 2.0).sum()) /
+                     Isat_norm2.size)
+        label_lin = 'Linear (mean): Isat_rms = %4.2e' % (Isat_RMS2)
 
-    return (isat_RMS, isat_norm, isat_trend,
-            isat_RMS2, isat_norm2, isat_trend2,
-            good_fit)
+    fig = None
+    if(show_plot):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        str_title = 'loop: %d Linear trend removal' % (loop)
+        str_title = str_title + ' V_cutoff = %5.1f' % (V_Isat.max())
+        ax.set_title(str_title)
+        ax.plot(V_raw, I_raw, 'k.')
+        ax.plot(V_Isat, I_Isat, 'r.')
+        ax.plot(V_Isat, Isat_trend, 'b', label=label_exp)
+        ax.plot(V_Isat, Isat_trend2, 'g', label=label_lin)
+        ax.legend(loc='lower left')
+
+    return (Isat_RMS, Isat_norm, Isat_trend,
+            Isat_RMS2, Isat_norm2, Isat_trend2,
+            good_fit, fig)
+
 
 #
 #
@@ -212,256 +278,182 @@ def remove_linear_trend(raw_U, raw_I, isat_seg_idx, V_float, Te):
 #
 #
 #
-#
-npts_Isat = 100
-Ie_ratio = 2.0
-nVknee = 5
-do_remove_linear_trend = True
-loop_max = 0
-if(do_remove_linear_trend):
-    loop_max = 3
-loop = 0
-
-df = np.load('/Users/ralph/source/py_fortran_tests/ui_sample_data_3.npz')
-V_raw = df['U']
-I_raw = df['I']
-
-plt.figure()
-plt.plot(V_raw, I_raw, 'k.')
-
-if (npts_Isat > I_raw.size):
-    err_str = "npts_Isat is larger than the total data set: "
-    err_str += "%d > %d" % (npts_Isat, I_raw.size)
-    raise FitException(err_str)
-
-one_over_probeA = np.ones_like(I_raw)
-
-while True:
-    #
-    #####################################################################
-    # Step -1: Remove linear Isat trend on subsequent passes
-    ####################################################################
-    #
-    curr = I_raw * one_over_probeA
-
-    #
-    #####################################################################
-    # Step 0: Estimate Isat
-    ####################################################################
-    #
-    if (V_raw[0] > V_raw[-1]):
-        Isat_est = curr[-npts_Isat:].mean()
-    elif (V_raw[0] < V_raw[-1]):
-        Isat_est = curr[:npts_Isat].mean()
-
-    if(Isat_est < 1e-6):
-        err_str = "Isat estimate = %e < 0.0. Isat has to be positive" %\
-            (Isat_est)
-        raise FitException(err_str)
-    #
-    ######################################################################
-    # Step 2: Sort input data from positive to negative currents
-    ######################################################################
-    #
-    curr_data, V_data = sort_IV(curr, V_raw)
-
-    #
-    ######################################################################
-    # Step 3: Fit all possible datasets using FastExpRange0
-    # Step 4: Select best fit based on smalles sigmaTe
-    ######################################################################
-    #
-
-    res = do_UI_fit(V_raw, curr_data, np.ones_like(I_raw), Isat_est,
-                    Ie_ratio=Ie_ratio, nVknee=nVknee)
-    isat, sigma_isat, ib, sigma_ib, Te, sigma_Te, RChi2, npts = res
-
-    idx_range = np.arange(npts)
-    Vknee = V_data[idx_range].max()
-    I_positive = (curr_data[idx_range] > 0.0).sum()
-    I_negative = (curr_data[idx_range] < 0.0).sum()
-    F_electron = float(I_negative) / idx_range.size
-    Iknee = curr_data[idx_range].min()
-    Ie_ratio_used = -Iknee / Isat_est
-
-    #
-    ##################################################################
-    # Step 5: Determine ion saturation segment: voltages <= Vfloat - Te
-    ##################################################################
-    #
-
-    V_float = Te * np.log(-1.0 * isat / ib)
-
-    print '======================================================='
-    print 'Trend removal'
-    print ''
-
-    if do_remove_linear_trend:
-        V_cutoff = V_float - 0.5 * Te
-    else:
-        V_cutoff = V_float - Te
-    V_cutoff = min(V_cutoff, V_float - 5)
-    V_cutoff = max(V_cutoff, V_float - 30)
-    print 'loop = %d, V_cutoff = %f' % (loop, V_cutoff)
-
-    # find the segment where V < v_cutoff
-    v_cut_idx = np.where(V_raw < V_cutoff)[0]
-    if(v_cut_idx.size < 10):
-        raise FitException("Less than 10 datapoins found with V < Vf_Te\n")
-
-    isat_seg_idx = np.arange(v_cut_idx[0], v_cut_idx[-1])
-
-    res = remove_linear_trend(V_raw, I_raw, isat_seg_idx, V_float, Te)
-    isat_RMS = res[0]
-    isat_norm = res[1]
-    isat_trend = res[2]
-    isat_RMS2 = res[3]
-    isat_norm2 = res[4]
-    isat_trend2 = res[5]
-    good_fit = res[6]
-
-    #
-    # Comare trend2 to the trend from the exponential model.
-    # If it is better, use it
-    if (isat_RMS2 < 1.5 * isat_RMS):
-        isat_RMS = isat_RMS2
-        isat_norm = isat_norm2
-        isat_trend = isat_trend2
-        if good_fit:
-            linear_fit_better = True
-        one_over_probeA[isat_seg_idx] = isat_trend2.min() / isat_trend2
-
-    loop += 1
-    plt.figure()
-    plt.plot(one_over_probeA)
-    plt.title('loop = %d' % loop)
-
-    if(loop >= loop_max):
-        break
-
-
-
-
-
-
-
-def uifit_minsigTe(U, raw_I, Ie_ratio=2.0, min_Ie_ratio=0.0, npts_Isat=100,
-                   nVknee=3):
+def FitIV_MinSigTe(V_raw, I_raw, npts_Isat=100, Ie_ratio=2.0, nVknee=5,
+                   do_remove_linear_trend=True,
+                   Te_min=10.0, Te_max=150.0, TeAcc=1.0, MaxIterTe=1000,
+                   show_plot=False, debug=False):
     """
-    Fit a probe characteristic of the form
-
-    I(V) = Isat + Ib * exp(V / Te) for V < VKnee
+    FitIV_MinSigTE
+    ==============
+    This procedure fits Isat and Te to the I-V probe characteristic
+    I(V) = Isat + Ib * exp(V/Te)
 
     I: probe current
-    U: probe voltage
+    V: probe voltage
+
+    Input:
+    ======
+    V_raw      - Voltage array, np.ndarray(dtype='float64')
+    I_raw      - Current array, np.ndarray(dtype='float64')
+    npts_Isat  - Number of points for initial guess on Isat, int
+    Ie_ratio   - Maximum -I/I_sat for fitting, float64
+    nVknee     - Number of possible values for upper fit limit
+    do_remove_linear_trend
+    TeMin      - Minimum electron temperature
+    TeMax      - Maximum electron temperature
+    TeAcc      - Accuracy of electron temperature fit coefficient
+    MaxIterTe  - Maximum iteration for fitting routine
+    show_plot  - Plot I-V data set, all fits and trend removal
+
+    Output:
+    =======
+
 
     """
 
-    #Vknee = 0.0
-    Isat_est = 0.0
-    #Isat = 0.0
-    #Ib = 0.0
-    #Te = 10.0
-    #IterTe = 0
-    #SigmaIsat = 0.0
-    #SigmaTe = 0.0
-    #Ie_ratio_used = 0.0
-    #F_electron = 0.0
-    #Rchi2 = 0.0
-    #Error = 0
+    # Loop three times if we are tasked to remove a linear trend in the
+    # ion saturation regime
+    loop_max = (0, 3)[do_remove_linear_trend]
+    loop = 0
 
-    #one_over_probeA = np.ones_like(raw_I)
+    # Estimate the ion saturation current on less data points than the
+    # entire data set
+    assert(npts_Isat < I_raw.size)
 
-    #
-    #####################################################################
-    # Step -1: Remove linear trend on Isat
-    ####################################################################
-    #
+    one_over_probeA = np.ones_like(I_raw)
 
-    #I = raw_I * one_over_probeA
+    figure_list = None
+    if (show_plot):
+        figure_list = []
 
-    #
-    #####################################################################
-    # Step 0: Estimate Isat
-    ####################################################################
-    #
+    while True:
+        #
+        #####################################################################
+        # Step -1: Remove linear Isat trend on subsequent passes
+        ####################################################################
+        #
+        linear_fit_better = False
+        curr = I_raw * one_over_probeA
 
-    if (U[0] > U[-1]):
-        Isat_est = raw_I[-npts_Isat:].mean()
-    elif (U[0] < U[-1]):
-        Isat_est = raw_I[:npts_Isat].mean()
+        #
+        #####################################################################
+        # Step 0: Estimate Isat
+        ####################################################################
+        #
+        if (V_raw[0] > V_raw[-1]):
+            Isat_est = curr[-npts_Isat:].mean()
+        elif (V_raw[0] < V_raw[-1]):
+            Isat_est = curr[:npts_Isat].mean()
 
-    assert(Isat_est >= 0)
-    if(Isat_est < 1e-6):
-        err_str = "Isat estimate = %e < 0.0. Isat has to be positive" %\
-            (Isat_est)
+        # Assert that we have a sufficiently negative Isat estimate.
+        assert(Isat_est > 1e-6)
+
+        #
+        ######################################################################
+        # Step 2: Sort input data from positive to negative currents
+        ######################################################################
+        #
+        curr_data, V_data = sort_IV(curr, V_raw)
+
+        #
+        ######################################################################
+        # Step 3: Fit all possible datasets using FastExpRange0
+        # Step 4: Select best fit based on smalles sigmaTe
+        ######################################################################
+        #
+
+        res = do_UI_fit(V_data, curr_data, Isat_est, npts_Isat, nVknee=nVknee,
+                        Ie_ratio=Ie_ratio, it=loop, show_plot=show_plot,
+                        debug=debug)
+        Isat = res[0]
+        sigma_Isat = res[1]
+        Ib = res[2]
+        sigma_Ib = res[3]
+        Te = res[4]
+        sigma_Te = res[5]
+        RChi2 = res[6]
+        npts = res[7]
+        if (show_plot):
+            figure_list.append(res[8])
+
+        idx_range = np.arange(npts)
+        Vknee = V_data[idx_range].max()
+        #I_positive = (curr_data[idx_range] > 0.0).sum()
+        I_negative = (curr_data[idx_range] < 0.0).sum()
+        F_electron = float(I_negative) / idx_range.size
+        Iknee = curr_data[idx_range].min()
+        Ie_ratio_used = -Iknee / Isat_est
+
+        #
+        ##################################################################
+        # Step 5: Determine ion saturation segment: voltages <= Vfloat - Te
+        ##################################################################
+        #
+
+        V_float = Te * np.log(-1.0 * Isat / Ib)
+        if(debug):
+            print '======================================================='
+            print 'U-I Fit: Isat = %4.2e Vfloat = %4.2e, Te = %4.2e' %\
+                (Isat, V_float, Te)
+            print '======================================================='
+            print 'Trend removal'
+            print ''
+
+        # Take V_cutoff = V_float - 0.5 * Te : remove_linear_trend = True
+        #      V_cutoff = V_float - 1.0 * Te : remove_linear_trend = False
+        factor = (-1.0, -1.75)[do_remove_linear_trend]
+        V_cutoff = V_float + factor * Te
+
+        V_cutoff = min(V_cutoff, V_float - 5)
+        V_cutoff = max(V_cutoff, V_float - 50)
+        if(debug):
+            print 'loop = %d, V_cutoff = %f' % (loop, V_cutoff)
+
+        # find the segment where V < v_cutoff
+        # Assume that this segment is longer than 10 data points, so that
+        # statistics computed on it make sense. If not, we are out
+        v_cut_idx = np.where(V_raw <= V_cutoff)[0]
+        if (v_cut_idx.size < 10):
+            break
+
+        Isat_seg_idx = np.arange(v_cut_idx[0], v_cut_idx[-1])
+
+        res = remove_linear_trend(V_raw, I_raw, Isat_seg_idx, Isat,
+                                  Ib, V_float, Te, show_plot=show_plot,
+                                  debug=debug)
+        Isat_RMS, Isat_norm, Isat_trend = res[0:3]
+        Isat_RMS2, Isat_norm2, Isat_trend2 = res[3:6]
+        good_fit = res[6]
+
+        #
+        # Comare trend2 to the trend from the exponential model.
+        # If it is better, use it
+        if (Isat_RMS2 < 1.5 * Isat_RMS):
+            Isat_RMS = Isat_RMS2
+            Isat_norm = Isat_norm2
+            Isat_trend = Isat_trend2
+            linear_fit_better = (False, True)[good_fit]
+            one_over_probeA[Isat_seg_idx] = Isat_trend2.min() / Isat_trend2
+
+        loop += 1
+        if(loop >= loop_max or not linear_fit_better):
+            break
+
+    # See if the fit is in good bounds
+    if (Te + sigma_Te >= Te_max):
+        err_str = "Te exceeds maximum allowed"
+        err_str = "Te = %f, TeAcc= %f, TeMax = %f" % (Te, sigma_Te, Te_max)
         raise FitException(err_str)
 
-    #
-    #####################################################################
-    # Step 1: Sort input data from positive to negative currents
-    ####################################################################
-    #
-
-    sort_idx = raw_I.argsort()
-    I_data = raw_I[sort_idx][::-1]
-    V_data = U[sort_idx][::-1]
-
-    #
-    #####################################################################
-    # Step 2: Set up nVknee possible input data sets,
-    # spanning from I_data = -min_Ie_ratio : -2 * Ie_ratio
-    ####################################################################
-    #
-
-    nelem = I_data.size - 1
-    nVknee = max(nVknee, 3)
-    Ie_set = np.ones(nVknee, dtype='float64')
-
-    # Set up Ie_ratio for first fit. Fit only on I values exceeding Ie_ratio
-    Ie_ratio = min(Ie_ratio, -0.5 * I_data.min() / Isat_est)
-    print "nelem = %d, nVknee = %d, Ie_ratio = %e" % (nelem, nVknee, Ie_ratio)
-
-    print 'Fit boundaries (units of Isat):'
-    Ie_set = np.linspace(-min_Ie_ratio, -2 * Ie_ratio, nVknee) * Isat_est
-    print Ie_set
-    # Check if the intervall defined by each Ie contains more points
-    # than points were used to guess Isat
-    num_fit_pts = np.array([(I_data > f).sum() for f in Ie_set])
-    print 'Number of points to fit:'
-    print num_fit_pts
-
-    # Abort if less then 3 fit ranges are identified that exceed th number of
-    # points used to estimate the ion saturation current
-    if ((num_fit_pts > npts_Isat).sum() < 4):
-        npts_exceed = (num_fit_pts > npts_Isat).sum()
-        err_str = "Number of points used to estimate isat = %d\n" % (npts_Isat)
-        err_str = "Number of fit ranges exceeding npts_Isat: %d\n" %\
-            (npts_exceed)
-        err_str = "Increase Ie_ratio (passed: %f)\n" % (Ie_ratio)
+    if (Te - sigma_Te <= Te_min):
+        err_str = "Te under minimum allowed"
+        err_str = "Te = %f, TeAcc= %f, TeMin = %f" % (Te, sigma_Te, Te_min)
         raise FitException(err_str)
 
-    #
-    #####################################################################
-    # Step 3: Fit all possible datasets using FastExpRange0
-    ####################################################################
-    #
-
-    #TeBounds = 149.
-    #Te_guess = 10.0
-    res = call_uifit(V_data, I_data, num_fit_pts)
-    isat_set, sigma_is_set, ib_set, sigma_ib_set, Te_set, sigma_Te_set, chi2_set, err = res
-
-    print 'isat_set = ', isat_set
-    print 'sigma_is_set = ', sigma_is_set
-    print V_data.dtype
-
-    res = call_uifit(V_data, I_data)
-    isat_set, sigma_is_set, ib_set, sigma_ib_set, Te_set, sigma_Te_set, chi2_set, err = res
-
-    print 'isat_set = ', isat_set
-    print 'sigma_is_set = ', sigma_is_set
-    print V_data.dtype
+    # Return all fit values
+    return (Isat, sigma_Isat, V_float, Te, sigma_Te, Vknee, Isat_est, Ib,
+            sigma_Ib, F_electron, Ie_ratio_used, RChi2, Isat_RMS, Isat_seg_idx,
+            Isat_norm, Isat_trend, figure_list)
 
 
 def uifit_minsigTE_stat(U, I, fit_min=100, fit_max=300, fit_step=10,
@@ -590,7 +582,6 @@ def uifit_minsigTE_stat(U, I, fit_min=100, fit_max=300, fit_step=10,
         c_fit[idx] = c[0]
         sigC_fit[idx] = sC[0]
         RChi2 = chi2[0]
-        #a_fit[idx], sigA_fit[idx], b_fit[idx], sigB_fit[idx], c_fit[idx], sigC_fit[idx], RChi2 = res
         if not(silent):
             output_str = '\t:d from lstsq-fit: a = %f pm %f' % (a_fit[idx],
                                                                 sigA_fit[idx])
@@ -643,7 +634,6 @@ def uifit_minsigTE_stat(U, I, fit_min=100, fit_max=300, fit_step=10,
         sigC_fit[idx] = sC[0]
         RChi2 = chi2[0]
 
-        #a_fit[idx], sigA_fit[idx], b_fit[idx], sigB_fit[idx], c_fit[idx], sigC_fit[idx], RChi2 = res
         if not(silent):
             output_str = '\t:d from lstsq-fit: a = %f pm %f' % (a_fit[idx],
                                                                 sigA_fit[idx])
@@ -827,7 +817,7 @@ def uifit_minsigTE_stat(U, I, fit_min=100, fit_max=300, fit_step=10,
                 vfloat_best, sig_vfloat, Te_best, sig_Te, num_stationary)
 
 
-def call_uifit(U, I_fit, npts_fit=None, show_plots=False):
+def call_uifit(U, I_fit, npts_fit=None, show_plots=False, debug=False):
     """
     Wrapper function for fastexprange_work routine
     Fit the function y(x) = a + b * exp(x/c) on the U-U curve passed.
@@ -944,10 +934,21 @@ def call_uifit(U, I_fit, npts_fit=None, show_plots=False):
                                    f_sigmaA, f_b, f_sigmaB, f_c, f_sigmaC,
                                    f_RChi2, f_c_guess, f_cMin, f_cMax,
                                    f_Xacc, f_MaxIter, f_Iter, f_Error)
+    if(debug):
+        print '\tcall_uifit: a = ', a
+        print '\tcall_uifit: sigmaA = ', sigmaA
+        print '\tcall_uifit: b = ', b
+        print '\tcall_uifit: sigmaB = ', sigmaB
+        print '\tcall_uifit: c = ', c
+        print '\tcall_uifit: sigmaC = ', sigmaC
+        print '\tcall_uifit: f_cMin = ', cMin
+        print '\tcall_uifit: f_cMax = ', cMax
+        print '\tcall_uifit: f_Xacc = ', Xacc
+        print '\tcall_uifit: f_RChi2 = ', RChi2
+        print '\tcall_uifit: f_Error = ', Error
+
     #if(fit_error.max() == 1):
     #    print 'Bad fit: fit_error = %d' % fit_error
-
-
     return a, sigmaA, b, sigmaB, c, sigmaC, RChi2, Error
 
 # end of file uifit.py
