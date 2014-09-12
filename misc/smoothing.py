@@ -23,33 +23,33 @@ from multiprocessing import Pool
 
 def smooth( x, window_len = 5, window = 'hanning' ):
     """smooth the data using a window with requested size.
-    
+
     This method is based on the convolution of a scaled window with the signal.
-    The signal is prepared by introducing reflected copies of the signal 
+    The signal is prepared by introducing reflected copies of the signal
     (with the window size) in both ends so that transient parts are minimized
     in the begining and end part of the output signal.
-    
+
     input:
-        x: the input signal 
+        x: the input signal
         window_len: the dimension of the smoothing window; should be an odd integer
         window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
             flat window will produce a moving average smoothing.
 
     output:
         the smoothed signal
-        
+
     example:
 
     t=linspace(-2,2,0.1)
     x=sin(t)+randn(len(t))*0.1
     y=smooth(x)
-    
-    see also: 
-    
+
+    see also:
+
     numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve
     scipy.signal.lfilter
- 
-    TODO: the window parameter could be the window itself if an array instead of a string   
+
+    TODO: the window parameter could be the window itself if an array instead of a string
     """
 
     if x.ndim != 1:
@@ -94,7 +94,7 @@ def moving_average(x, window_len = 11):
 
 def moving_rms(x, window_len = 11, smp=False, nthreads=4):
     """
-    Compute the standard deviation on a running window 
+    Compute the standard deviation on a running window
 
     RMS(X)_i = sum_j=-k^k sqrt{ (X_i - <X>_k)^2/(2k+1) }
 
@@ -108,12 +108,12 @@ def moving_rms(x, window_len = 11, smp=False, nthreads=4):
     i0 = (window_len-1)/2
     result = np.zeros_like(x)
     if smp:
-        print 'smp Keyword does not do anything yet' 
-  
+        print 'smp Keyword does not do anything yet'
+
 #    if smp:
 #        p = Pool(nthreads)
 #        f = lambda x, i, i0: x[i-i0:i+i0].std()
-#        
+#
 #    else:
     for i in np.arange(i0, np.size(x)-i0):
         #result[i] = x[i-i0:i+i0].std()
@@ -139,7 +139,7 @@ def normalize_timeseries(timeseries, radius=16384, blocksize=128, maxelem = 2621
 
     Load a c++ shared library that wraps a CUDA implementation of the
     running average and running RMS.
-    """ 
+    """
 
 
     if( np.mod(blocksize, 2) == 1):
@@ -186,7 +186,7 @@ def normalize_timeseries(timeseries, radius=16384, blocksize=128, maxelem = 2621
     # need to cut off radius elements at the boundaries of the interval.
 
     maxelem = maxelem + 4*radius
-    
+
     elements_left = np.size(timeseries)
     loop_pass = 0
     num_pass = np.ceil( float(numel) / float(maxelem) )
@@ -201,13 +201,13 @@ def normalize_timeseries(timeseries, radius=16384, blocksize=128, maxelem = 2621
         print 'Computing moving average of:', timeseries[idx_start:idx_start+5] , 'storing to:', result_ma[:5]
         c_indata_avg = ctypes.c_void_p(timeseries[idx_start:idx_start + maxelem].ctypes.data)
         result = ma_lib.ma_cuda(c_indata_avg, c_result_ma, c_numpoints_avg)
-        print 'Done. Size of returned array: %d' % (np.size(result_ma)) 
+        print 'Done. Size of returned array: %d' % (np.size(result_ma)), ': ', result_ma[:5]
 
         #print 'Computing moving RMS...'
         indata_rms[:] = timeseries[idx_start + radius : idx_start + maxelem - radius] - result_ma
         c_indata_rms = ctypes.c_void_p(indata_rms.ctypes.data)
         result = ma_lib.rms_cuda(c_indata_rms, c_result_rms, c_numpoints_rms)
-        #print 'Done.' 
+        #print 'Done.'
 
         if show_plots:
             fig = plt.figure()
