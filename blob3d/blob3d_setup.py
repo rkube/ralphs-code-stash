@@ -138,7 +138,12 @@ class blob3d_setup:
             # Try to cast each value to a string first. If this fails,
             # it must be a string
             try:   
-                params[seps[0]] = float(seps[-1])
+                if( params[seps[0]] in self.key_int_val ):
+                    params[seps[0]] = int(seps[-1])
+                if( params[seps[0]] in self.key_float_val ):
+                    params[seps[0]] = float(seps[-1])
+                if( params[seps[0]] in self.key_str_val ):
+                    params[seps[0]] = seps[-1]
             except ValueError:
                 params[seps[0]] = seps[-1]
      
