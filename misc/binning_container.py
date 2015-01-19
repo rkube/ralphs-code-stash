@@ -91,7 +91,7 @@ class binning_container(object):
         # If feval_array == None, use array to determine the
         # bin used
 
-        assert(np.size(array) == self.bin_length)
+        assert(array.size == self.bin_length)
 
         # Find the bin we bin ''array'' in
         if feval_array is None:

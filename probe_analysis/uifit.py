@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#-*- Encoding: UTF-8 -*-
+# -*- Encoding: UTF-8 -*-
 
 import numpy as np
 import ctypes
@@ -23,7 +23,12 @@ def ui_fun(U, Isat, Vfloat, Te):
     return Isat * (np.exp((U - Vfloat) / Te) - 1.0)
 
 
-fit_func = lambda U, a, b, c: a + b * np.exp(U / c)
+def fit_func(U, a, b, c):
+    """
+    Theoretical U-I curve
+    """
+
+    return a + b * np.exp(U / c)
 
 
 def sort_IV(I_raw, V_raw):
@@ -73,7 +78,7 @@ def do_UI_fit(volt, I_data, Isat_est, npts_Isat,
 
     nelem = I_data.size - 1
     nVknee = max(nVknee, 3)
-    #iend = np.zeros(nVknee, dtype='i4')
+    # iend = np.zeros(nVknee, dtype='i4')
     Ie_set = np.ones(nVknee, dtype='float64')
 
     # Set up Ie_ratio for first fit. Fit only on I values exceeding Ie_ratio
@@ -107,8 +112,8 @@ def do_UI_fit(volt, I_data, Isat_est, npts_Isat,
     # Step 3: Fit all possible datasets using FastExpRange0
     ####################################################################
     #
-    #TeBounds = 149.
-    #Te_guess = 10.0
+    # TeBounds = 149.
+    # Te_guess = 10.0
     res = call_uifit(volt, I_data, num_fit_pts)
     Isat_set = res[0]
     sigma_Is_set = res[1]
@@ -202,7 +207,7 @@ def remove_linear_trend(V_raw, I_raw, Isat_seg_idx, Isat, ib, V_float, Te,
     #
     V_Isat = V_raw[Isat_seg_idx]
     I_Isat = I_raw[Isat_seg_idx]
-    #print 'I_Isat.mean() = %f' % I_Isat.mean()
+    # print 'I_Isat.mean() = %f' % I_Isat.mean()
     Isat_trend = Isat + ib * np.exp(V_Isat / Te)
     Isat_norm = I_Isat / Isat_trend
     Isat_RMS = np.sqrt(((Isat_norm - 1.0) ** 2.0).sum()) / Isat_norm.size
@@ -272,15 +277,10 @@ def remove_linear_trend(V_raw, I_raw, Isat_seg_idx, Isat, ib, V_float, Te,
             good_fit, fig)
 
 
-#
-#
-#
-#
-#
-#
 def FitIV_MinSigTe(V_raw, I_raw, npts_Isat=100, Ie_ratio=2.0, nVknee=5,
                    do_remove_linear_trend=True,
                    Te_min=10.0, Te_max=150.0, TeAcc=1.0, MaxIterTe=1000,
+                   compute_stats=False,
                    show_plot=False, debug=False):
     """
     FitIV_MinSigTE
@@ -291,19 +291,23 @@ def FitIV_MinSigTe(V_raw, I_raw, npts_Isat=100, Ie_ratio=2.0, nVknee=5,
     I: probe current
     V: probe voltage
 
+    adapted from Brians MinSigTE routine:
+        ~labombard/edge/analysis/fitiv_minsigte.pro
+
     Input:
     ======
-    V_raw      - Voltage array, np.ndarray(dtype='float64')
-    I_raw      - Current array, np.ndarray(dtype='float64')
-    npts_Isat  - Number of points for initial guess on Isat, int
-    Ie_ratio   - Maximum -I/I_sat for fitting, float64
-    nVknee     - Number of possible values for upper fit limit
+    V_raw          - Voltage array, np.ndarray(dtype='float64')
+    I_raw          - Current array, np.ndarray(dtype='float64')
+    npts_Isat      - Number of points for initial guess on Isat, int
+    Ie_ratio       - Maximum -I/I_sat for fitting, float64
+    nVknee         - Number of possible values for upper fit limit
     do_remove_linear_trend
-    TeMin      - Minimum electron temperature
-    TeMax      - Maximum electron temperature
-    TeAcc      - Accuracy of electron temperature fit coefficient
-    MaxIterTe  - Maximum iteration for fitting routine
-    show_plot  - Plot I-V data set, all fits and trend removal
+    TeMin          - Minimum electron temperature
+    TeMax          - Maximum electron temperature
+    TeAcc          - Accuracy of electron temperature fit coefficient
+    compute_stats  - Compute statistics on isat segment
+    MaxIterTe      - Maximum iteration for fitting routine
+    show_plot      - Plot I-V data set, all fits and trend removal
 
     Output:
     =======
@@ -378,7 +382,7 @@ def FitIV_MinSigTe(V_raw, I_raw, npts_Isat=100, Ie_ratio=2.0, nVknee=5,
 
         idx_range = np.arange(npts)
         Vknee = V_data[idx_range].max()
-        #I_positive = (curr_data[idx_range] > 0.0).sum()
+        # I_positive = (curr_data[idx_range] > 0.0).sum()
         I_negative = (curr_data[idx_range] < 0.0).sum()
         F_electron = float(I_negative) / idx_range.size
         Iknee = curr_data[idx_range].min()
@@ -450,6 +454,10 @@ def FitIV_MinSigTe(V_raw, I_raw, npts_Isat=100, Ie_ratio=2.0, nVknee=5,
         err_str = "Te = %f, TeAcc= %f, TeMin = %f" % (Te, sigma_Te, Te_min)
         raise FitException(err_str)
 
+    #if compute_stats:
+    #    good_isat_idx = curr_data >
+
+
     # Return all fit values
     return (Isat, sigma_Isat, V_float, Te, sigma_Te, Vknee, Isat_est, Ib,
             sigma_Ib, F_electron, Ie_ratio_used, RChi2, Isat_RMS, Isat_seg_idx,
@@ -504,10 +512,19 @@ def uifit_minsigTE_stat(U, I, fit_min=100, fit_max=300, fit_step=10,
 
     """
     smooth_length = 40
-    x_sheath = lambda V0, Te: 1.02 * (np.sqrt(np.sqrt(-V0 / Te)
-                                              - 2.0 ** (-0.5)) *
-                                      (np.sqrt(-V0 / Te) + 2.0 ** 0.5))
-    nlin_fitfun = lambda U, a, b, c: a + b * np.exp(U / c)
+
+    def x_sheath(V0, Te):
+        """
+        Sheath expansion function
+        """
+        val = 1.02 * (np.sqrt(np.sqrt(-V0 / Te) - 2.0 ** (-0.5))
+                      * (np.sqrt(-V0 / Te) + 2.0 ** 0.5))
+        return val
+
+    def nlin_fit_func(U, a, b, c):
+        val = a + b * np.exp(U / c)
+        return val
+
     fit_range = np.arange(fit_min, fit_max + 1, fit_step)
     nfits = np.size(fit_range)
     # Values from non-lin fit
@@ -536,16 +553,16 @@ def uifit_minsigTE_stat(U, I, fit_min=100, fit_max=300, fit_step=10,
              I[vfloat_guess_idx])
 
     if return_plot:
-        #fig_vfest = plt.figure()
+        # fig_vfest = plt.figure()
         fig_result = plt.figure(figsize=(12, 12))
         ax_res1 = fig_result.add_subplot(311)
         ax_res1.plot(U, I, label='Input data')
         ax_res1.set_ylim((0.8 * I.min(), 1.2 * I.max()))
-        #ax_vfest = fig_vfest.add_subplot(111)
-        #ax_vfest.plot(U, I, label='Input data')
-        #ax_vfest.plot(U, I_sm, label='smoothed data')
-        #ax_vfest.plot(U[vfloat_guess_idx], I[vfloat_guess_idx],
-        #              'ko', label='Estimated Vfloat')
+        # ax_vfest = fig_vfest.add_subplot(111)
+        # ax_vfest.plot(U, I, label='Input data')
+        # ax_vfest.plot(U, I_sm, label='smoothed data')
+        # ax_vfest.plot(U[vfloat_guess_idx], I[vfloat_guess_idx],
+        #               'ko', label='Estimated Vfloat')
 
     # Setup the fit interval
     # Assure the following conditions:
@@ -563,10 +580,10 @@ def uifit_minsigTE_stat(U, I, fit_min=100, fit_max=300, fit_step=10,
         fit_min = 10
 
     if(vfloat_guess_idx + fit_max > np.size(I)):
-        #Cut fit interval down to U-I sweep size
+        # Cut fit interval down to U-I sweep size
         fit_max = np.size(I) - vfloat_guess_idx
 
-    #Increase the fit areal and fit Isat, I_b and Te. Te has a global
+    # Increase the fit areal and fit Isat, I_b and Te. Te has a global
     # minimum, so once c(Te) increases we can break
     if not(silent):
         print '====== Running first fit ========'
@@ -700,7 +717,7 @@ def uifit_minsigTE_stat(U, I, fit_min=100, fit_max=300, fit_step=10,
 
     if return_plot:
         ax_res1.plot(U, I, '.g', label='Probe data, probe_A compensated')
-        ax_res1.plot(U, nlin_fitfun(U, a_best, b_best, c_best),
+        ax_res1.plot(U, nlin_fit_func(U, a_best, b_best, c_best),
                      label='Fit: a=%f, b=%f, c=%f' % (a_best, b_best, c_best))
         ax_res1.plot(U, -ui_fun(U, Isat_best, vfloat_best, Te_best), 'k',
                      label='Fit, Isat=%4.3fA Vfloat=%4.2fV, Te=%4.2feV' %
@@ -845,26 +862,26 @@ def call_uifit(U, I_fit, npts_fit=None, show_plots=False, debug=False):
     assert(U.size == I_fit.size)
     assert(npts_fit.max() <= U.size)
 
-    #npoints = U.size
+    # npoints = U.size
     # Prepare input for U-I fit in python. These need to be created as
     # ctypes objects valid references to them can be created later
     m = ctypes.c_int(U.size)
     npts_end = ctypes.c_int(npts_fit.size)
-    #iend = ctypes.c_int(npoints)
-    #a = ctypes.c_double(0.0)
-    #b = ctypes.c_double(0.0)
-    #c = ctypes.c_double(0.0)
-    #sigmaA = ctypes.c_double(0.0)
-    #sigmaB = ctypes.c_double(0.0)
-    #sigmaC = ctypes.c_double(0.0)
-    #RChi2 = ctypes.c_double(0.0)
+    # iend = ctypes.c_int(npoints)
+    # a = ctypes.c_double(0.0)
+    # b = ctypes.c_double(0.0)
+    # c = ctypes.c_double(0.0)
+    # sigmaA = ctypes.c_double(0.0)
+    # sigmaB = ctypes.c_double(0.0)
+    # sigmaC = ctypes.c_double(0.0)
+    # RChi2 = ctypes.c_double(0.0)
     c_guess = ctypes.c_double(20.0)
     cMin = ctypes.c_double(1.0)
     cMax = ctypes.c_double(150.0)
     Xacc = ctypes.c_double(0.001)
     MaxIter = ctypes.c_int(1000)
-    #Iter = ctypes.c_int(0)
-    #Error = ctypes.c_int(0)
+    # Iter = ctypes.c_int(0)
+    # Error = ctypes.c_int(0)
 
     a = np.zeros(npts_fit.size, dtype='float64')
     sigmaA = np.zeros(npts_fit.size, dtype='float64')
@@ -881,7 +898,7 @@ def call_uifit(U, I_fit, npts_fit=None, show_plots=False, debug=False):
     # Number of data points in x,y array
     f_m = ctypes.byref(m)
     # integer, intent(in) :: npts_end
-    #Number of end points for different fit intervalls
+    # Number of end points for different fit intervalls
     f_npts_end = ctypes.byref(npts_end)
     # integer, intent(in) :: iend
     # Endpoints of the fit intervals
@@ -891,25 +908,25 @@ def call_uifit(U, I_fit, npts_fit=None, show_plots=False, debug=False):
     # real(kind=8), intent(in) :: y   y values
     f_y = ctypes.c_void_p(I_fit.ctypes.data)
     # real(kind=8), intent(out) :: a  fit parameter
-    #f_a = ctypes.byref(a)
+    # f_a = ctypes.byref(a)
     f_a = ctypes.c_void_p(a.ctypes.data)
     # real(kind=8), intent(out) :: sigmaA  error on fit parameter
-    #f_sigmaA = ctypes.byref(sigmaA)
+    # f_sigmaA = ctypes.byref(sigmaA)
     f_sigmaA = ctypes.c_void_p(sigmaA.ctypes.data)
     # real(kind=8), intent(out) :: b  fit parameter
-    #f_b = ctypes.byref(b)
+    # f_b = ctypes.byref(b)
     f_b = ctypes.c_void_p(b.ctypes.data)
     # real(kind=8), intent(out) :: sigmaB  error on fit parameter
-    #f_sigmaB = ctypes.byref(sigmaB)
+    # f_sigmaB = ctypes.byref(sigmaB)
     f_sigmaB = ctypes.c_void_p(sigmaB.ctypes.data)
     # real(kind=8), intent(out) :: c  fit parameter
-    #f_c = ctypes.byref(c)
+    # f_c = ctypes.byref(c)
     f_c = ctypes.c_void_p(c.ctypes.data)
     # real(kind=8), intent(out) :: sigmaC  error on fit parameter
-    #f_sigmaC = ctypes.byref(sigmaC)
+    # f_sigmaC = ctypes.byref(sigmaC)
     f_sigmaC = ctypes.c_void_p(sigmaC.ctypes.data)
     #  real(kind=8), intent(out) :: RChi2  reduced chi^2 from fit
-    #f_RChi2 = ctypes.byref(RChi2)
+    # f_RChi2 = ctypes.byref(RChi2)
     f_RChi2 = ctypes.c_void_p(RChi2.ctypes.data)
     # real(kind=8), intent(in) :: c_guess  initial guess for c
     f_c_guess = ctypes.byref(c_guess)
@@ -924,10 +941,10 @@ def call_uifit(U, I_fit, npts_fit=None, show_plots=False, debug=False):
     f_MaxIter = ctypes.byref(MaxIter)
     # integer, intent(inout) :: Iter
     # max number of function evaluations allowed / f. evals done
-    #f_Iter = ctypes.byref(Iter)
+    # f_Iter = ctypes.byref(Iter)
     f_Iter = ctypes.c_void_p(Iter.ctypes.data)
     # integer, intent(out) :: Error  : Did something go wrong?
-    #f_Error = ctypes.byref(Error)
+    # f_Error = ctypes.byref(Error)
     f_Error = ctypes.c_void_p(Error.ctypes.data)
 
     fit_error = fexp_lib.fexpr_py_(f_m, f_npts_end, f_iend, f_x, f_y, f_a,
@@ -947,8 +964,9 @@ def call_uifit(U, I_fit, npts_fit=None, show_plots=False, debug=False):
         print '\tcall_uifit: f_RChi2 = ', RChi2
         print '\tcall_uifit: f_Error = ', Error
 
-    #if(fit_error.max() == 1):
+    # if(fit_error.max() == 1):
     #    print 'Bad fit: fit_error = %d' % fit_error
+
     return a, sigmaA, b, sigmaB, c, sigmaC, RChi2, Error
 
 # end of file uifit.py
