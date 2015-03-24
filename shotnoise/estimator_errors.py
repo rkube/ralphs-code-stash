@@ -50,7 +50,7 @@ def mse_var_sn(A, alpha, gamma, n_rg):
 
     part1 = (2. / (n_rg * alpha)) + (-5. + 8. * np.exp(-n_rg * alpha)
                                      + np.exp(-2. * alpha * n_rg)) / (n_rg2 * alpha2)
-    part2 = (6. / (n_rg * alpha)) + (-27. + 3. * np.exp(-n_rg * alpha)) / (n_rg2 * alpha2)
+    part2 = (6. / (n_rg * alpha)) + (-27. + 3. * np.exp(-2. * alpha * n_rg)) / (n_rg2 * alpha2)
 
     part1 = part1 * gamma2
     part2 = part2 * gamma
