@@ -7,6 +7,20 @@ Spectral routine prototypes used in 2dads
 
 import numpy as np
 
+def d_dxi_dy(U, dx=dx, dy=dy):
+    """
+    Spectral derivation
+
+    axis0 -> y
+    axis1 -> x
+    """
+
+    kxrg = np.fft.fftfreq(U.shape[0], d=dx)
+    kyrg = np.fft.fftfreq(U.shape[0], d=dy)
+
+    kyrg = kyrg[:U.shape[0] / 2 + 1]
+
+
 
 def solve_laplace(U, Lx):
     """
