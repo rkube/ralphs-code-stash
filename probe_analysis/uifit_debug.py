@@ -217,12 +217,14 @@ if(do_remove_linear_trend):
     loop_max = 3
 loop = 0
 
-df = np.load('/Users/ralph/source/py_fortran_tests/ui_sample_data_3.npz')
+#df = np.load('/Users/ralph/source/py_fortran_tests/ui_sample_data_3.npz')
+df = np.load('/Users/ralph/uni/cmod/tmp_data/ui_sample_data_11.npz')
 V_raw = df['U']
 I_raw = df['I']
 
 plt.figure()
 plt.plot(V_raw, I_raw, 'k.')
+plt.show()
 
 if (npts_Isat > I_raw.size):
     err_str = "npts_Isat is larger than the total data set: "

@@ -2,6 +2,7 @@
 # -*- Encoding: UTF-8 -*-
 
 import numpy as np
+import matplotlib.pyplot as plt
 from misc.phantom_helper import make_rz_array
 # from blob_tracking.detect_peak import detect_peak_3d
 import blobtrail
@@ -13,13 +14,12 @@ from scipy.io import readsav
 
 """
 Run blob detection on a set of GPI frames and store information about the
-blob in a blobtrail
-object. Return the list of blobtrail objects
+blob in a blobtrail object. Return the list of blobtrail objects
 """
 
 
 def blob_tracking(shotnr, frames, frame_info, frame0=0, minmax=[2.0, 10.0],
-                  logger=None, nframes=30000):
+                  logger=None, nframes=30000, datadir='/Volumes/Backup/cmod_data/phantom/'):
 
     np.set_printoptions(linewidth=999999)
     # Begin analysis at this frame.
@@ -43,13 +43,13 @@ def blob_tracking(shotnr, frames, frame_info, frame0=0, minmax=[2.0, 10.0],
         print 'frame0 = ', frame0, 'nframes = ', nframes
 
     # Load separatrix data for shot
-    s = readsav('%d/%d_separatrix.sav' % (shotnr, shotnr), verbose=False)
+    s = readsav('%s/%d/%d_separatrix.sav' % (datadir, shotnr, shotnr), verbose=False)
 
     # Detect peaks
     # The detect_peak_3d returns time indices of blob events relative for
     # the array passed to it. Remember to add frame0 to idx_event[t0] to
     # translate to the frame indexing used in this script.
-    idx_events = detect_peak_3d(frames[frame0:frame0+nframes, :, :],
+    idx_events = detect_peak_3d(frames[frame0:frame0 + nframes, :, :],
                                 trigger, minmax, 0, lag, rel_idx=False)
     num_events = np.shape(idx_events)[0]
     # event_ctr = np.ones([num_events])
@@ -60,8 +60,8 @@ def blob_tracking(shotnr, frames, frame_info, frame0=0, minmax=[2.0, 10.0],
         print '%d blob events detected' % (num_events)
 
     # Define the events we will analyze
-    event_range = np.arange(num_events)
-#    event_range = np.arange( 5,10 )
+#    event_range = np.arange(num_events)
+    event_range = np.arange( 5,10 )
 #    num_events  = np.size(event_range)
 
     # Get R,z projection, grid data
@@ -82,15 +82,22 @@ def blob_tracking(shotnr, frames, frame_info, frame0=0, minmax=[2.0, 10.0],
         # z0 = event[2]
         # R0 = event[3]
 
+        print ''
+        print '=============================================================='
         print 'Tracking peak %d / %d, frame %d' % (idx, num_events, t0)
         # try:
+        #plt.figure()
+        #plt.contourf(frames[t0, :, :], 64)
+        #plt.colorbar()
+        #plt.show()
+        #print 'frames.max  = %f' % frames[t0, :, :].max()
         newtrail = blobtrail.blobtrail(frames[t0 - tau_max:
                                               t0 + tau_max, :, :],
                                        event, frame0, shotnr,
                                        thresh_amp=0.7, blob_ext=14,
                                        thresh_dist=8.,
                                        fwhm_max_idx=18,
-                                       doplots=False)
+                                       doplots=True)
         if (np.size(newtrail.get_tau()) < 4):
             fail_list.append(idx)
             failcount += 1
@@ -132,7 +139,7 @@ def blob_tracking(shotnr, frames, frame_info, frame0=0, minmax=[2.0, 10.0],
         newtrail.plot_trail(frames, rz_array=rz_array, xyi=xyi,
                             trigger_box=trigger, sep_data=s,
                             plot_com=True, plot_shape=True, plot_geom=True,
-                            save_frames=True)
+                            save_frames=False)
         trails.append(newtrail)
 
     return trails

@@ -63,8 +63,10 @@ class blobtrail:
         self.invalid_bw_tracking = False
 
         # Track blob forwards and backwards, combine results
-        self.track_backward(frames, doplots)
-        self.track_forward(frames, doplots)
+        self.tau_b = 0          # This is set to a real value in track_backward
+        self.track_backward(frames, doplots=False)
+        self.tau_f = 0          # This is set to a real value in track_forward
+        self.track_forward(frames, doplots=False)
 
         # If the blob cannot be tracked forward and backwards, abort
         if (self.invalid_fw_tracking and self.invalid_bw_tracking):
@@ -88,8 +90,8 @@ class blobtrail:
                                      self.xymax_f[:max(1, self.tau_f), :]),
                                     axis=0).astype('int')
         # The shape of the blob
-        self.blob_shape = (self.blob_shape_b + self.blob_shape_f) /\
-            (self.tau_b + max(1, self.tau_f))
+        #self.blob_shape = (self.blob_shape_b + self.blob_shape_f) /\
+        #    (self.tau_b + max(1, self.tau_f))
         # Radial and poloidal width of the blob
         self.fwhm_ell_rad = np.zeros_like(self.amp)
         self.fwhm_ell_pol = np.zeros_like(self.amp)
@@ -101,12 +103,10 @@ class blobtrail:
         Track blob backward frame0 to beginning of frames
         """
 
-        # self.tau_b, self.amp_b, self.xycom_b, self.xymax_b,
-        # fwhm_rad_idx_b, fwhm_pol_idx_b, self.blob_shape_b = \
         res = tracker(frames[:self.tau_max, :, :], self.event,
                       self.thresh_amp, self.thresh_dist, self.blob_ext,
                       'backward', plots=doplots, verbose=True)
-        self.tau_b, self.amp_b, self.xycom_b, self.xymax_b, fwhm_rad_idx_b, fwhm_pol_idx_b, self.blob_shape_b = res
+        self.tau_b, self.amp_b, self.xycom_b, self.xymax_b, fwhm_rad_idx_b, fwhm_pol_idx_b = res
 
     def track_forward(self, frames, doplots=False):
         """
@@ -115,7 +115,7 @@ class blobtrail:
         res = tracker(frames[self.tau_max:, :, :], self.event,
                       self.thresh_amp, self.thresh_dist, self.blob_ext,
                       'forward', plots=doplots, verbose=True)
-        self.tau_f, self.amp_f, self.xycom_f, self.xymax_f, fwhm_rad_idx_f, fwhm_pol_idx_f, self.blob_shape_f = res
+        self.tau_f, self.amp_f, self.xycom_f, self.xymax_f, fwhm_rad_idx_f, fwhm_pol_idx_f = res
 
     def plot_trail(self, frames, rz_array=None, xyi=None, trigger_box=None,
                    sep_data=None, plot_com=False, plot_max=False,

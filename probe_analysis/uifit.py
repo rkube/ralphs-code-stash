@@ -75,7 +75,6 @@ def do_UI_fit(volt, I_data, Isat_est, npts_Isat,
     # spanning from I_data = -min_Ie_ratio : -2 * Ie_ratio
     ####################################################################
     #
-
     nelem = I_data.size - 1
     nVknee = max(nVknee, 3)
     # iend = np.zeros(nVknee, dtype='i4')
@@ -90,6 +89,8 @@ def do_UI_fit(volt, I_data, Isat_est, npts_Isat,
     num_fit_pts = np.zeros(nVknee, dtype='i4')
     for idx in np.arange(nVknee):
         num_fit_pts[idx] = int((I_data > Ie_set[idx]).sum())
+    
+    debug = True
 
     if(debug):
         print "nelem = %d, nVknee = %d, Ie_ratio = %e" % (nelem, nVknee,
@@ -114,7 +115,7 @@ def do_UI_fit(volt, I_data, Isat_est, npts_Isat,
     #
     # TeBounds = 149.
     # Te_guess = 10.0
-    res = call_uifit(volt, I_data, num_fit_pts)
+    res = call_uifit(volt, I_data, num_fit_pts, debug=True, show_plots=True)
     Isat_set = res[0]
     sigma_Is_set = res[1]
     Ib_set = res[2]
@@ -947,22 +948,35 @@ def call_uifit(U, I_fit, npts_fit=None, show_plots=False, debug=False):
     # f_Error = ctypes.byref(Error)
     f_Error = ctypes.c_void_p(Error.ctypes.data)
 
+    if(debug):
+        print '\tcall_uifit: (Initially): a = ', a
+        print '\tcall_uifit: (Initially): sigmaA = ', sigmaA
+        print '\tcall_uifit: (Initially): b = ', b
+        print '\tcall_uifit: (Initially): sigmaB = ', sigmaB
+        print '\tcall_uifit: (Initially): c = ', c
+        print '\tcall_uifit: (Initially): sigmaC = ', sigmaC
+        print '\tcall_uifit: (Initially): f_cMin = ', cMin
+        print '\tcall_uifit: (Initially): f_cMax = ', cMax
+        print '\tcall_uifit: (Initially): f_Xacc = ', Xacc
+        print '\tcall_uifit: (Initially): f_RChi2 = ', RChi2
+        print '\tcall_uifit: (Initially): f_Error = ', Error
+
     fit_error = fexp_lib.fexpr_py_(f_m, f_npts_end, f_iend, f_x, f_y, f_a,
                                    f_sigmaA, f_b, f_sigmaB, f_c, f_sigmaC,
                                    f_RChi2, f_c_guess, f_cMin, f_cMax,
                                    f_Xacc, f_MaxIter, f_Iter, f_Error)
     if(debug):
-        print '\tcall_uifit: a = ', a
-        print '\tcall_uifit: sigmaA = ', sigmaA
-        print '\tcall_uifit: b = ', b
-        print '\tcall_uifit: sigmaB = ', sigmaB
-        print '\tcall_uifit: c = ', c
-        print '\tcall_uifit: sigmaC = ', sigmaC
-        print '\tcall_uifit: f_cMin = ', cMin
-        print '\tcall_uifit: f_cMax = ', cMax
-        print '\tcall_uifit: f_Xacc = ', Xacc
-        print '\tcall_uifit: f_RChi2 = ', RChi2
-        print '\tcall_uifit: f_Error = ', Error
+        print '\tcall_uifit: (Finally): a = ', a
+        print '\tcall_uifit: (Finally): sigmaA = ', sigmaA
+        print '\tcall_uifit: (Finally): b = ', b
+        print '\tcall_uifit: (Finally): sigmaB = ', sigmaB
+        print '\tcall_uifit: (Finally): c = ', c
+        print '\tcall_uifit: (Finally): sigmaC = ', sigmaC
+        print '\tcall_uifit: (Finally): f_cMin = ', cMin
+        print '\tcall_uifit: (Finally): f_cMax = ', cMax
+        print '\tcall_uifit: (Finally): f_Xacc = ', Xacc
+        print '\tcall_uifit: (Finally): f_RChi2 = ', RChi2
+        print '\tcall_uifit: (Finally): f_Error = ', Error
 
     # if(fit_error.max() == 1):
     #    print 'Bad fit: fit_error = %d' % fit_error

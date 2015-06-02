@@ -177,15 +177,16 @@ def tracker(frames, event, thresh_amp, thresh_dis, blob_ext,
     # dimension 0 of frames
     # tau_max = np.shape(frames)[0]
     tau_max = frames.shape[0]
-    z0_last, R0_last = event[2], event[3]
+    I0, z0_last, R0_last = event[0], event[2], event[3]
 
-    # Include the current frame when determining fwhm, com coordinates, etc
-    if (direction == 'forward'):
-        I0 = frames[0, z0_last, R0_last]
+    # I0 is the threshold amplitude we use for detecting blobs
+    # i.e. for blob tracking, we identify later all connected regions that are larger than 
+    # I0 * thresh_amp
+
+    if (direction is 'forward'):
         f_idx = 0  # Index used to access frames
         tau = 0  # Start with zero offset
-    elif (direction == 'backward'):
-        I0 = frames[0, z0_last, R0_last]
+    elif (direction is 'backward'):
         f_idx = -1  # Start at the second to last frame, 0 based indexing
         tau = 1  # Start with one frame offset
 
@@ -199,7 +200,6 @@ def tracker(frames, event, thresh_amp, thresh_dis, blob_ext,
     fwhm_pol_idx = np.zeros([tau_max, 2], dtype='int')  # Poloidal FWHM
     fwhm_rad_idx = np.zeros([tau_max, 2], dtype='int')  # Radial FWHM
     amp = np.zeros([tau_max])  # Amplitude at COM position
-    blob = np.zeros([tau_max, blob_ext, blob_ext])
 
     good_blob = True
     while (good_blob and tau < tau_max):
@@ -208,39 +208,39 @@ def tracker(frames, event, thresh_amp, thresh_dis, blob_ext,
                 (f_idx, R0_last, z0_last, frames[f_idx, z0_last, R0_last])
 
         event_frame = frames[f_idx, :, :]
-        plt.figure()
-        plt.contourf(event_frame)
-        plt.show()
-        # Label the regions with ore than 60% of the original intensity
+        #plt.figure()
+        #plt.contourf(event_frame, 64)
+        #plt.title('direction: %s, fidx=%d' % (direction, f_idx))
+        #plt.colorbar()
+        
+        # Label all contiguous regions with ore than 60% of the original intensity
         labels = pm.label(event_frame > thresh_amp * I0)
-        # Get blob areas
+        # Get the area of all contiguous regions
         blob_area = pm.blob(labels, 'area', output='data')
-        # Get blob centers
+        # Get the controid of all contiguous regions
         blob_cent = pm.blob(labels, 'centroid', output='data')
         if (verbose):
             print 'Centroid analysis:'
-            print 'blob_cent = ', blob_cent
-            print '\t shape = ', blob_cent.shape
+            print '    -> blob_cent = ', blob_cent
+            print '    -> shape = ', blob_cent.shape
 
-        if (np.size(blob_cent) < 1):
+        if (blob_cent.size < 1):
             # No peak here, quit tracking
             good_blob = False
             print 'Frame %d, %ss: lost track of blob' % (f_idx, direction)
             break
 
-        # Minimal distance to last peak in current frame
-        min_dist_frame = np.sqrt(64. * 64. + 64. * 64.)
-        # We got a peak, see if it is within the maximum distance a peak
-        # may travel over one frame
-        loop_area = np.where(blob_area > 0.1 * max(blob_area))[0]
-        # for d_idx, i in enumerate(np.where(blob_area >
-        #                           0.1 * max(blob_area))[0]):
+        # We now have a bunch of contiguous regions.
+        # Loop over the regions that are at least 10% of the largest region
+        # and find the one, whose centroid is closest to the  last known position 
+        # of the blob
+
+        loop_area = np.where(blob_area > 0.1 * blob_area.max())[0]
+        min_idx = -1                        #
+        min_dist_frame = np.sqrt(event_frame.shape[0] * event_frame.shape[1])     # Maximal distance on a 64x64 grid
         for d_idx, i in enumerate(loop_area):
-            # TODO: Vectorize loop
             dist = np.sqrt((blob_cent[i, 1] - R0_last) ** 2 +
                            (blob_cent[i, 0] - z0_last) ** 2)
-            print d_idx
-            print dist
             if (verbose):
                 print 'Region %d, distance to last peak: %f' % (d_idx, dist)
             if (dist < min_dist_frame and dist < thresh_dis):
@@ -249,11 +249,16 @@ def tracker(frames, event, thresh_amp, thresh_dis, blob_ext,
                 if (verbose):
                     print 'Accepted'
 
-        if (min_dist_frame == np.sqrt(8192.)):
+        # If min_dist_frame is still sqrt(8192), no area was selected and the
+        # blob could not be tracked successfully
+        if (min_dist_frame is np.sqrt(event_frame.shape[0] * event_frame.shape[1])):
             print 'No peak satisfying criteria.'
             print '\tFound: dist = %f, Stopping %s tracking after %d frames' %\
                 (min_dist_frame, direction, tau)
             break
+        if (min_idx is -1):
+            print 'This should not happen'
+            raise ValueError
 
         # Compute the x and y COM coordinates of the blob, store
         blob_mask = labels != (min_idx + 1)
@@ -271,25 +276,12 @@ def tracker(frames, event, thresh_amp, thresh_dis, blob_ext,
         # To be consistent with indexing from xymax, flip this array
         # COM returns com along second dimension at index 0
         xycom[tau, ::-1] = com(event_masked)
-
-        ycom_off, xcom_off = np.round(xycom[tau, :]).astype('int')
-        # print 'xycom = ', xycom[tau, :]
-        # print 'ycom_off = ', ycom_off
-        # print 'xcom_off = ', xcom_off
+        ycom_off, xcom_off = xycom[tau, :].round().astype('int')
 
         if (verbose):
             print 'Peak at (%d,%d), COM at (%d,%d)' %\
                 (xymax[tau, 0], xymax[tau, 1],
                  xycom[tau, 0], xycom[tau, 1])
-
-        blob_shape = event_frame[ycom_off - blob_ext / 2:
-                                 ycom_off + blob_ext / 2,
-                                 xcom_off - blob_ext / 2:
-                                 xcom_off + blob_ext / 2]
-        # blob[:np.shape(blob_shape)[0],:np.shape(blob_shape)[1]] += blob_shape
-        blob[:blob_shape.shape[0], :blob_shape.shape[1]] += blob_shape
-#        except ValueError:
-#            print 'Error adding blob shape to average'
 
         amp[tau] = event_frame[z0_last, R0_last]
         # Follow the peak
@@ -306,31 +298,30 @@ def tracker(frames, event, thresh_amp, thresh_dis, blob_ext,
             plt.xlabel('x / px')
             plt.ylabel('y / px')
 
-        tau += 1                              # Frame accepted, advance indices
         if (direction is 'forward'):
+            tau += 1                              # Frame accepted, advance indices
             f_idx += 1
         elif (direction is 'backward'):
+            # We started at tau=1, subtract one to return correct number of frame
+            # tracked in one direction, ignoring the starting frame
+            # Ignore this for forward frame as we count the original frame here
+            tau -= 1
             f_idx -= 1
 
-    if (direction is 'backward'):
-        # We started at tau=1, subtract one to return correct number of frame
-        # tracked in one direction, ignoring the starting frame
-        # Ignore this for forward frame as we count the original frame here
-        tau -= 1
 
     if (plots):
         plt.show()
 
-    return tau, amp, xycom, xymax, fwhm_rad_idx, fwhm_pol_idx, blob
+    return tau, amp, xycom, xymax, fwhm_rad_idx, fwhm_pol_idx
 
 
 def find_sol_pixels(shotnr, frame_info=None, rz_array=None,
-                    datadir='/Users/ralph/source/blob_tracking'):
+                    datadir='/Users/ralph/source/blob_tracking/test_data'):
     """
     Returns the indices of the pixels in between the separatrix and the LCFS.
     """
 
-    s = readsav('%s/test_data/separatrix.sav' % (datadir), verbose=False)
+    s = readsav('%s/separatrix.sav' % (datadir), verbose=False)
 
     gap_idx_mask = ((s['rmid'].reshape(64, 64) > s['rmid_sepx']) &
                     (s['rmid'].reshape(64, 64) < s['rmid_lim']))
@@ -339,11 +330,11 @@ def find_sol_pixels(shotnr, frame_info=None, rz_array=None,
 
 
 def find_sol_mask(shotnr, frame_info=None, rz_array=None,
-                  datadir='/Users/ralph/source/blob_tracking'):
+                  datadir='/Users/ralph/source/blob_tracking/test_data'):
     """
     Returns a mask for the pixels in between the separatrix and the LCFS.
     """
-    s = readsav('%s/test_data/separatrix.sav' % (datadir), verbose=False)
+    s = readsav('%s/separatrix.sav' % (datadir), verbose=False)
 
     return ((s['rmid'].reshape(64, 64) > s['rmid_sepx']) &
             (s['rmid'].reshape(64, 64) < s['rmid_lim']))

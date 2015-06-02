@@ -264,7 +264,7 @@ def binning_time_vfloat( probe_vertical, probe_voltage, z_bins, time_signal, t_m
     return  t_intervals, binned_list
 
 
-def binning_time_asp( probe_position, r_bins, timebase, t_maxrc_programmed, t_down = 0.05, t_up = 0.05, delta_r = 1e-3, epsilon = 1e-6, min_rc_delta = 50000, show_plots = False ):
+def binning_time_asp(probe_position, r_bins, timebase, t_maxrc_programmed, t_down=0.05, t_up=0.05, delta_r=1e-3, epsilon=1e-6, min_rc_delta=50000, show_plots=False):
     """
     Given a list of R or rho positions for the probe return. 
     Use this routine of the probe's coordinate is minimal when fully plunged into the plasma. I.e. R or rho.
@@ -273,13 +273,18 @@ def binning_time_asp( probe_position, r_bins, timebase, t_maxrc_programmed, t_do
     Parameters:
     probe_position:     Horizontal (r) position of the probe
     r_bins:             List of probe positions for which the time intervals are determined
-    timebase:        Timebase of the probe
+    timebase:           Timebase of the probe
     t_maxrc_programmed: Time when maximum probe reciprocation is programmed
     t_down:             Time it takes the probe to move from max. reciprocation to baseline
     t_up:               Time it takes the probe to move from baseline to max. reciprocation
     delta_r:            Width of spatial interval
     epsilon:            A very small number
     min_rc_delta:       Interval in which to look for time of maximal probe reciprocation
+
+    Output:
+    t_recip_intervals: Time of the individual probe reciprocations
+    binned_list:       List. Index0 gives the in/out reciproctaion, i.e. 0/6, 
+                             Index1 gives the indices in timebase, for which the probe is in a given r_bin
     """
     delta_t = timebase[1] - timebase[0]
     n_rbins = np.shape(r_bins)[0]
@@ -288,14 +293,14 @@ def binning_time_asp( probe_position, r_bins, timebase, t_maxrc_programmed, t_do
     # from the programmed maxima. Find these times exactly.
 
     # Find the time indices where the maximum probe reciprocation is programmed
-    t_idx_maxrc = [ np.argwhere ( np.abs( timebase - t ) < epsilon )[0][0] for t in t_maxrc_programmed ]
+    t_idx_maxrc = [np.argwhere(np.abs(timebase - t) < epsilon)[0][0] for t in t_maxrc_programmed]
     # Now find the local minima around these indices as the probe reciprocates inwards
-    probe_position_min = [ probe_position[ idx - min_rc_delta : idx + min_rc_delta ].argmin() for idx in t_idx_maxrc ]
+    probe_position_min = [probe_position[idx - min_rc_delta:idx + min_rc_delta].argmin() for idx in t_idx_maxrc]
 
     if show_plots:
         plt.figure()
         for idx in t_idx_maxrc:
-            plt.plot( timebase[ idx - min_rc_delta : idx + min_rc_delta], probe_position[ idx - min_rc_delta : idx + min_rc_delta ] )
+            plt.plot(timebase[idx - min_rc_delta:idx + min_rc_delta], probe_position[idx - min_rc_delta:idx + min_rc_delta])
         plt.xlabel('time / s')
         plt.ylabel('Probe plunge / m')
         plt.show()
@@ -326,18 +331,21 @@ def binning_time_asp( probe_position, r_bins, timebase, t_maxrc_programmed, t_do
         plt.show()
 
     # Cut each probe trajectory (up, down) in sub-intervals 
-    for idx, interval in enumerate( t_recip_intervals ):
-        probe_position_interval = probe_position[ interval[0] : interval[-1] ]
-        time_interval = timebase[ interval[0] : interval[-1] ]
+    for idx, interval in enumerate(t_recip_intervals):
+        print idx, interval
+        probe_position_interval = probe_position[interval[0] : interval[-1]]
+        time_interval = timebase[interval[0] : interval[-1]]
 
         # Find time indices corresponding to each interval [z - delta_z : z + delta_z]
-        t_bins_full = [ np.squeeze(np.argwhere( np.squeeze(( probe_position_interval > upper) & ( probe_position_interval < lower)  )) )for upper, lower in zip( r_bins-delta_r, r_bins+delta_r ) ]
-        #print len(r_bins)
-        #print [ (upper, lower) for upper, lower in zip( r_bins - delta_r, r_bins + delta_r ) ]
-        #print t_bins_full
+        t_bins_full = [np.squeeze(np.argwhere(np.squeeze((probe_position_interval > upper) & 
+                                                         (probe_position_interval < lower)))) 
+                                                         for upper, lower in zip(r_bins-delta_r, r_bins+delta_r)]
+        # print len(r_bins)
+        # print [(upper, lower) for upper, lower in zip(r_bins - delta_r, r_bins + delta_r)]
+        # print t_bins_full
 
         # Remove empty bins where the probe does not reciprocate into
-        while( np.size(t_bins_full[-1]) < 1 ):
+        while(t_bins_full[-1].size < 1):
             t_bins_full.pop()
         #    r_bins = r_bins[:-1]
 
@@ -355,7 +363,7 @@ def binning_time_asp( probe_position, r_bins, timebase, t_maxrc_programmed, t_do
     return  t_recip_intervals, binned_list
 
 
-def binning_time_fsp( probe_position, z_bins, timebase, t_maxrc_programmed, t_down = 0.05, t_up = 0.05, delta_z = 1e-3, epsilon = 1e-6, max_rc_delta = 50000, show_plots = False ):
+def binning_time_fsp(probe_position, z_bins, timebase, t_maxrc_programmed, t_down = 0.05, t_up = 0.05, delta_z = 1e-3, epsilon = 1e-6, max_rc_delta = 50000, show_plots = False):
     """
     Use this routine of the probe's coordinate is minimal when fully plunged into the plasma. I.e. R or rho.
     t_intervals:    Time indices for each in/out reciprocation of the probe
@@ -370,6 +378,12 @@ def binning_time_fsp( probe_position, z_bins, timebase, t_maxrc_programmed, t_do
     delta_z:            Width of spatial interval
     epsilon:            A very small number
     max_rc_delta:       Interval in which to look for time of maximal probe reciprocation
+
+    Output:
+    t_recip_intervals: Time of the individual probe reciprocations
+    binned_list:       List. Index0 gives the in/out reciproctaion, i.e. 0/6, 
+                             Index1 gives the indices in timebase, for which the probe is in a given z_bin
+
     """
     delta_t = timebase[1] - timebase[0]
     n_zbins = np.shape(z_bins)[0]
@@ -422,16 +436,16 @@ def binning_time_fsp( probe_position, z_bins, timebase, t_maxrc_programmed, t_do
     # Cut each probe trajectory (up, down) in sub-intervals 
     for idx, interval in enumerate( t_recip_intervals ):
         probe_position_interval = probe_position[ interval[0] : interval[-1] ]
-        time_interval = timebase[ interval[0] : interval[-1] ]
+        time_interval = timebase[interval[0] : interval[-1]]
 
         # Find time indices corresponding to each interval [z - delta_z : z + delta_z]
-        t_bins_full = [ np.squeeze(np.argwhere( np.squeeze(( probe_position_interval > upper) & ( probe_position_interval < lower)  )) )for upper, lower in zip( z_bins-delta_z, z_bins+delta_z ) ]
+        t_bins_full = [np.squeeze(np.argwhere( np.squeeze((probe_position_interval > upper) & ( probe_position_interval < lower))))for upper, lower in zip(z_bins-delta_z, z_bins+delta_z)]
         #print len(z_bins)
         #print [ (upper, lower) for upper, lower in zip( z_bins - delta_z, z_bins + delta_z ) ]
         #print t_bins_full
 
         # Remove empty bins where the probe does not reciprocate into
-        while( np.size(t_bins_full[-1]) < 1 ):
+        while(np.size(t_bins_full[-1]) < 1):
             t_bins_full.pop()
         #    z_bins = z_bins[:-1]
 
@@ -441,9 +455,9 @@ def binning_time_fsp( probe_position, z_bins, timebase, t_maxrc_programmed, t_do
                 if len(bin) == 0:
                     continue
                 #print idx, bin
-                plt.plot( time_interval[ bin[0] : bin[-1] ], probe_position_interval[ bin[0] : bin[-1] ] )
+                plt.plot(time_interval[bin[0] : bin[-1]], probe_position_interval[bin[0] : bin[-1]])
  
-        binned_list.append( t_bins_full )
+        binned_list.append(t_bins_full)
         plt.show()
 
     return  t_recip_intervals, binned_list

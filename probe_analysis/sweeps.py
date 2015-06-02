@@ -214,8 +214,4 @@ def sweep_profile_fitui(timebase, jsat, vsweep, probe_R, sweep_tuple, show_plots
 
     return R, isat_profile, isat_rms_profile, isat_fluc_profile, isat_skew_profile, isat_kurt_profile, Te_profile, Vf_profile, num_points
 
-
-
-
-
-
+# End of file sweeps.py

@@ -15,8 +15,6 @@ phantom_frames
 Functions to work with phantom data
 
     make_rz_array       Compute r,z coordinates of GPI FOV
-
-
 """
 
 

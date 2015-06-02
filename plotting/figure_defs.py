@@ -14,6 +14,22 @@ fig_ipp = 1. / 72.72
 golden_ratio = 0.5*(1+sqrt(5))
 
 
+def set_mplrcparams(rcparams):
+    rcparams['text.usetex'] = True
+    rcparams['text.latex.preamble'] = r"\usepackage{lmodern}"
+    rcparams['font.family'] = 'lmodern'
+    rcparams['font.size'] = 20
+    rcparams['axes.labelsize'] = 20
+    rcparams['axes.titlesize'] = 20
+    rcparams['lines.linewidth'] = 3
+    rcparams['lines.markersize'] = 6
+    rcparams['xtick.labelsize'] = 20
+    rcparams['ytick.labelsize'] = 20
+    rcparams['legend.fontsize'] = 20
+
+    return rcparams
+
+
 def set_rcparams_poster(myParams):
     fig_width = 300 # in points
     fig_height = fig_width / golden_ratio
@@ -54,8 +70,8 @@ def set_rcparams_article_full(myParams):
     myParams['axes.linewidth'] = 1
     myParams['axes.labelsize'] = 12
     myParams['legend.fontsize'] = 8 
-    myParams['lines.linewidth'] = 2
-    myParams['lines.markersize'] = 5
+    myParams['lines.linewidth'] = 1
+    myParams['lines.markersize'] = 3
     myParams['figure.dpi'] = 300
     myParams['figure.figsize'] = [fig_width_in, fig_height_in]
     myParams['text.usetex'] = True
@@ -96,7 +112,7 @@ def set_rcparams_article_fullsq(myParams):
     """
     Full column, square with figure for revtex
     """
-    fig_width = 246.0 # in points
+    fig_width = 369.0 # 246.0 # in points
     fig_height = fig_width #/ golden_ratio
 
     fig_width_in = fig_width / 72.72
@@ -147,6 +163,39 @@ def set_rcparams_article_half(myParams):
     return fig_width, fig_height
 
 
+def set_rcparams_beamer(myParams):
+    """
+    Full screen figure in latex beamer
+    Size of beamer slide: 128mm by 96mm
+    Default font size in beamer is 11pt
+    http://userpages.umbc.edu/~rostamia/beamer/quickstart-Z-H-24.html#node_sec_24
+
+    Creates a figure with 
+    width = 9.6 / 2.54                   = 3.78"
+    height = width / 1.61 (golden ratio) = 2.34"
+    """
+
+    fig_width_in = 9.6 / 2.54
+    fig_height_in =fig_width_in / golden_ratio 
+    fig_width = fig_width_in * 72.72
+    fig_height = fig_height_in * 72.72
+
+
+    myParams['font.family'] = 'sans-serif'
+    myParams['font.size'] = 11
+    myParams['axes.linewidth'] = 0.5
+    myParams['axes.labelsize'] = 11
+    myParams['legend.fontsize'] = 11 
+    myParams['lines.markersize'] = 3
+    myParams['lines.linewidth'] = 1
+    myParams['figure.dpi'] = 300
+    myParams['figure.figsize'] = [fig_width_in, fig_height_in]
+    myParams['text.usetex'] = True
+    myParams['savefig.dpi'] = 300
+    myParams['pdf.fonttype'] = 42
+
+
+
 
 def set_rcparams_pres_small(myParams):
     """
@@ -162,3 +211,8 @@ def set_rcparams_pres_small(myParams):
     #myParams['legend.fontsize'] = 14
     myParams['xtick.labelsize'] = 'large'
     myParams['ytick.labelsize'] = 'large'    
+
+
+
+
+# End of file figure_defs.py
