@@ -25,40 +25,38 @@ where t_i is the value of the timeseries at t=i.
 
 import numpy as np
 
-def correlate(X, Y, window_length, mode=1):
+def correlate(signal1, signal2, window_length, mode=1):
 
-    """
-    Compute the cross-correlation of signal1 and signal2 within window_length time-lags
-
-    rho_{x,y}(tau) = E[((X(t) - E[X]) * (Y(t + tau) - E[Y]))] / (STD[X] STD[Y])
-
-    """
-    
-    if (X.size != Y.size):
+    if (np.size(signal1) != np.size(signal2)):
         raise ValueError('signal1 and signal2 have to be the same length')
-    if (window_length > X.size):
+    if (window_length > np.size(signal1)):
         raise ValueError('window_length must be smaller than the signal')
     corr = np.zeros(2 * window_length + 1)
-   
-    mu_X = X.mean()
-    std_X = X.std(ddof=1)
-
-    mu_Y = Y.mean()
-    std_Y = Y.std(ddof=1)
-
+    
     # Compute correlation only for positive time lags., tau is the timelag
-
-    # Correlation at tau=0
-    corr[window_length] = ((X - mu_X) * (Y - mu_Y)).mean() / (std_X * std_Y)
+    corr[ window_length ] = ( (signal1.mean()) * (signal2-signal2.mean())).mean() / ( signal1.std() * signal2.std() )
     for tau in np.arange(1, window_length+1):
         #print '%d/%d' % (tau, window_length)
-        #if mode == 1:
-            #corr[ window_length + tau ]     = ( (X[:-tau] -X[:-tau].mean())  * (Y[tau:] - Y[tau:].mean())).mean() / ( X[:-tau].std() * Y[tau:].std() )
-        corr[window_length + tau] = ((X[:-tau] - mu_X) * (Y[tau:] - mu_Y)).mean() / (std_X * std_Y) 
-        #elif mode == 2:
-        #    corr[ window_length + tau ]     = ( (X[:-tau] -X[:-tau].mean())  * (Y[tau:] - Y[tau:].mean())).mean() / ( X.std() * Y.std() )
+        if mode == 1:
+            corr[ window_length + tau ]     = ( (signal1[:-tau] -signal1[:-tau].mean())  * (signal2[tau:] - signal2[tau:].mean())).mean() / ( signal1[:-tau].std() * signal2[tau:].std() )
+        elif mode == 2:
+            corr[ window_length + tau ]     = ( (signal1[:-tau] -signal1[:-tau].mean())  * (signal2[tau:] - signal2[tau:].mean())).mean() / ( signal1.std() * signal2.std() )
     corr[:window_length] = corr[-1:window_length:-1]
+    corr[window_length] = 1.0
     
+    return corr
+
+
+def correlate_dft(signal1, signal2):
+    if (signal1.size != signal2.size):
+        raise ValueError('signal1 and signal 2 must be the same length')
+
+    signal1_ft = np.fft.fft(signal1)
+    signal2_ft = np.fft.fft(signal2)
+
+    corr = np.fft.ifft(np.conj(signal1_ft) * signal2_ft)
+    corr = np.fft.fftshift(corr)
+
     return corr
 
 

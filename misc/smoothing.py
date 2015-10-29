@@ -103,9 +103,9 @@ def moving_rms(x, window_len = 11, smp=False, nthreads=4):
     #if ( np.size(running_mean) != np.size(x)):
     #    raise ValueError, "array and running mean of the array must be the same size."
     # Assure that window_len is even. If not, decrease window_len by one
-    if window_len%2 == 0:
+    if window_len % 2 == 0:
         window_len = window_len-1
-    i0 = (window_len-1)/2
+    i0 = (window_len - 1) / 2
     result = np.zeros_like(x)
     if smp:
         print 'smp Keyword does not do anything yet'
@@ -115,9 +115,9 @@ def moving_rms(x, window_len = 11, smp=False, nthreads=4):
 #        f = lambda x, i, i0: x[i-i0:i+i0].std()
 #
 #    else:
-    for i in np.arange(i0, np.size(x)-i0):
+    for i in np.arange(i0, x.size - i0):
         #result[i] = x[i-i0:i+i0].std()
-        result[i] = np.sqrt( np.sum(x[i-i0:i+i0+1]*x[i-i0:i+i0+1])/(window_len))
+        result[i] = np.sqrt((x[i - i0:i + i0 + 1] * x[i - i0 : i + i0 + 1]).sum() / (window_len))
 
     return result[i0:-i0]
 

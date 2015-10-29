@@ -3,7 +3,7 @@
 
 import ctypes
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 def detrend(timeseries, radius=16384, blocksize=128):
     """
@@ -22,24 +22,29 @@ def detrend(timeseries, radius=16384, blocksize=128):
         cropped: number of items cropped at the end
     """
 
+    # Assert that the time series is in float64 format
+    assert(timeseries.dtype == np.core.numerictypes.float64)
+
     # Filter radius has to be a multiple of the blocksize
     assert(radius % blocksize == 0)
-    ma_lib = ctypes.cdll.LoadLibrary('/Users/ralph/source/running_ma/stencil_threaded.so')
+    #ma_lib = ctypes.cdll.LoadLibrary('/Users/ralph/source/running_ma/stencil_threaded.so')
+    ma_lib = ctypes.cdll.LoadLibrary('/Users/ralph/source/running_ma/stencil_threaded_module.so')
 
     # Crop input of the MA filter
-    len_input = np.size(timeseries)
+    len_input = timeseries.size
     cropped = len_input % blocksize
     # Crop MA input data to a multiple of the blocksize
     len_ma_input = len_input - cropped
+    # output of MA time series is equal to length of len_rms_input
     # Length of the RMS input data is the length of MA output data
     len_rms_input = len_ma_input - 2 * radius
     # Length of the RMS output data is cropped by 2*blocksize
     len_rms_output = len_rms_input - 2 * radius
 
-    print 'Input length: %d' % (len_input)
-    print 'Input length after cropping: %d' % (len_ma_input)
-    print 'MA output length: %d' % (len_rms_input)
-    print 'RMS output length: %d' % (len_rms_output)
+    #print 'Input length: %d' % (len_input)
+    #print 'Input length after cropping: %d' % (len_ma_input)
+    #print 'MA output length: %d' % (len_rms_input)
+    #print 'RMS output length: %d' % (len_rms_output)
 
     # Crop timeseries to suit input of MA
     ts_cropped = timeseries[:len_ma_input]

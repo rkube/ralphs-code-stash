@@ -132,146 +132,38 @@ def make_rz_array(frame_info):
     return res, transform_data
 
 
-class GPI_projection(Axes):
+def find_sol_pixels(s):
     """
-    Scale data from phantom camera from pixel space to object space
-    See http://matplotlib.sourceforge.net/examples/api/custom_scale_example.html
+    Returns the indices of the pixels in between the separatrix and the LCFS.
 
-    Scale function:
-    ( R )   ( m1 m2 )   ( P_x - P_x,0 )   ( R0 )
-    ( z ) = ( m3 m4 ) + ( P_y - P_y,0 ) + ( z0 )
+    s:    Processed separatrix data from IDL
+          i.e. s = readsav('%s/separatrix.sav' % (datadir), verbose=False)
+          see /usr/local/cmod/codes/efit/idl/efit_rz2rmid.pro
+              /home/terry/gpi/phantom/retrieve_phantom_RZ_array.pro
+              /home/rkube/IDL/separatrix.pro,
 
-    Inverse scale function:
+          s['rmid'] is a vector whose entries are the R-coordinate for each pixel
 
-    ( P_x - P_x,0 )   ( m1 m2 )^-1 ( R - R0 )
-    ( P_y - P_y,0 ) = ( m3 m4 )    ( z - z0 )
-
+          The pixels which are in the SOL have R > R_sep and R < R_limiter
     """
+    
+    gap_idx_mask = ((s['rmid'].reshape(64, 64) > s['rmid_sepx']) &
+                    (s['rmid'].reshape(64, 64) < s['rmid_lim']))
 
-    name = 'GPI_projection'
+    return np.argwhere(gap_idx_mask)
 
-    def __init__(self, fig, rect=None, *args, **kwargs):
-        """
-        To use this transformation, the 2x2 array M has to be passed.
-        """
-        if rect == None:
-            rect = [0.0, 0.0, 1.0, 1.0]
-        self.fig = fig
 
-        if kwargs.has_key('M') == False:
-            self.M = np.array([ [0.09365082, 0.00476183], [-0.0015873, 0.09920635] ])
-        else:
-            self.M = kwargs.pop('M')
+def find_sol_mask(shotnr, frame_info=None, rz_array=None,
+                  datadir='/Users/ralph/source/blob_tracking/test_data'):
+    """
+    Returns a mask for the pixels in between the separatrix and the LCFS.
+    """
+    s = readsav('%s/separatrix.sav' % (datadir), verbose=False)
 
-        if kwargs.has_key('Rz0') == False:
-            self.Rz0 = np.array([85.90000153, -6.05000019])
-        else:
-            self.Rz0 = kwargs.pop('Rz0')
+    return ((s['rmid'].reshape(64, 64) > s['rmid_sepx']) &
+            (s['rmid'].reshape(64, 64) < s['rmid_lim']))
 
-        Axes.__init__(self, fig, rect)
-        self.set_aspect(1.0, adjustable='box', anchor='C')
-        self.cla()
 
-    def cla(self):
-        Axes.cla(self)
-        Axes.set_xlim(self, 0., 1. )
-        Axes.set_ylim(self, 0., 1. )
 
-    def _set_lim_and_transforms(self):
-        print 'GPI_projection: setting limit and transforms'
 
-        self.transProjection = Affine2D().translate(self.Rz0[0], 20.0)
-
-        self.affine = Affine2D().scale(1./200., 1./200.)
-        self.transAxes = BboxTransformTo(self.bbox)
-
-        self.transData = self.transProjection + self.affine + self.transAxes
-
-        xaxis_stretch = Affine2D().scale(200., 200.)
-        yaxis_stretch = Affine2D().scale(200., 200.)
-        self._xaxis_transform =  xaxis_stretch + self.affine + self.transAxes #self.transData
-        self._yaxis_transform =  yaxis_stretch + self.affine + self.transAxes #self.transData
-
-        self._xaxis_text1_transform = self._xaxis_transform
-        self._xaxis_text2_transform = self._xaxis_transform
-        self._yaxis_text_transform = self._yaxis_transform
-
-    # Disallow interactive zooming and panning
-    def can_zoom(self):
-        return False
-
-    def start_pan(self, x, y, button):
-        pass
-
-    def end_pan(self):
-        pass
-
-    def drag_pan(self, button, key, x, y):
-        pass
-
-    class GPI_projection_transform(Transform):
-        input_dims = 2
-        output_dims = 2
-        is_separable = False
-
-        def __init__(self, M, Rz0):
-            Transform.__init__(self)
-            self.M = M
-            self.Rz0 = Rz0
-
-        def transform(self, a):
-            """
-            This transformation takes a NxN ``numpy`` array and returns a
-            transformed copy of the array.
-            """
-#            print 'GPI_projection_transform: ', np.shape(a), a
-#            a = np.dot(a, self.M) + self.Rz0
-#            print 'Transformed a:', np.shape(a), a
-
-            return a
-
-        def inverted(self):
-            """
-            The inverse transform
-            """
-            return GPI_projection.GPI_projection_inverse_transform(self.M, self.Rz0)
-
-    class GPI_projection_inverse_transform(Transform):
-        intput_dims = 2
-        output_dims = 2
-        is_separable = False
-
-        def __init__(self, M, Rz0):
-            Transform.__init__(self)
-
-            self.M = M
-            self.M_inv = np.linalg.inv(M)
-            self.Rz0 = Rz0
-#            print 'GPI_inverse_transform, M = ', self.M
-#            print 'GPI_inverse_transform, M_inv = ', self.M_inv
-#            print 'GPI_inverse_transform, Rz0 = ', self.Rz0
-#            print '----'
-
-        def transform(self, a):
-            """
-            Takes a NxN ``numpy`` array and returns its inverse transformation.
-            That is, go from object to pixel space
-            """
-
-#            print 'GPI_projection_inverse_transform: ', np.shape(a), a
-#            print 'GPI_projection_inverse_transform: ', np.shape(self.Rz0), self.Rz0
-#
-#            return (np.dot( self.M_inv * a  ) )
-#           print np.shape( a - self.Rz0 )
-#           for jy in np.arange(np.shape(a)[0]):
-#               for ix in np.arange(np.shape(a)[1]):
-#                   a[jy, ix, :] = a[jy, ix, :] - self.Rz0[:]
-#           a = np.dot( self.M_inv * ( a - self.Rz0 ))
-#                   a[jy, ix, :] = np.sum( self.M_inv * ( a[jy, ix, :] - self.Rz0 ), axis = 1)
-            return a
-
-        def inverted(self):
-            """
-            The inverse of this transformation is given by the rotation matrix M
-            """
-            return GPI_projection.GPI_projection_transform(self.M, self.Rz0)
+# End of file phantom_helper.py
