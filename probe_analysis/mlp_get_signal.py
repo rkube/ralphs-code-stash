@@ -64,33 +64,37 @@ def mlp_get_signal(varname, pin, shotnr, t_start, t_end, datadir=mlp_data_dir):
             # Compute Vrad as aerage over both poloidally separated pairs:
             # Vrad = (Vf(SE, pin1) - Vf(NE, pin0) + Vf(SW, pin2) - Vf(NW, pin3)) / 2.0
             #
-            tb_1 = df['tb_Vf_p1']
-            ts_1 = df['Vf_p1']
+            tb_1 = df['tb_Vp_p1']
+            ts_1 = df['Vp_p1']
 
             good_tidx = ((tb_1 > t_start) & (tb_1 < t_end))
             tb_1 = tb_1[good_tidx]
             ts_1 = ts_1[good_tidx]
+            #ts_1 = ts_1 - ts_1.mean()
 
-            tb_2 = df['tb_Vf_p0']
-            ts_2 = df['Vf_p0']
+            tb_2 = df['tb_Vp_p0']
+            ts_2 = df['Vp_p0']
 
             good_tidx = ((tb_2 > t_start) & (tb_2 < t_end))
             tb_2 = tb_2[good_tidx]
             ts_2 = ts_2[good_tidx]
+            #ts_2 = ts_2 - ts_2.mean()
 
-            tb_3 = df['tb_Vf_p2']
-            ts_3 = df['Vf_p2']
+            tb_3 = df['tb_Vp_p2']
+            ts_3 = df['Vp_p2']
 
             good_tidx = ((tb_3 > t_start) & (tb_3 < t_end))
             tb_3 = tb_3[good_tidx]
             ts_3 = ts_3[good_tidx]
+            #ts_3 = ts_3 - ts_3.mean()
 
-            tb_4 = df['tb_Vf_p3']
-            ts_4 = df['Vf_p3']
+            tb_4 = df['tb_Vp_p3']
+            ts_4 = df['Vp_p3']
 
             good_tidx = ((tb_4 > t_start) & (tb_4 < t_end))
             tb_4 = tb_4[good_tidx]
             ts_4 = ts_4[good_tidx]
+            #ts_4 = ts_4 - ts_4.mean()
 
             assert((tb_1 == tb_2).all())
             assert((tb_1 == tb_3).all())
