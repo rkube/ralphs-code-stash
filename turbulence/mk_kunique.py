@@ -3,15 +3,15 @@
 import numpy as np
 
 
-def mk_kunique(Nx, My, Lx=1.0, output=False):
+def mk_kunique(Nx, My, dx=1.0)
     """
     Given an index pair (n,m) describing a frequency
     k = k_x[n]**2 + k_y[m]**2, which index
     in the array f2_grid_unique does this correspond to?
     """
 
-    f_x = np.fft.fftfreq(Nx) * Nx
-    f_y = np.fft.fftfreq(My) * My
+    f_x = np.fft.fftfreq(Nx, d=dx) * Nx
+    f_y = np.fft.fftfreq(My, d=dx) * My
 
     # Meshgrid of frequencies squared
     f_xx, f_yy = np.meshgrid(f_x, f_y)
@@ -31,16 +31,6 @@ def mk_kunique(Nx, My, Lx=1.0, output=False):
                                   f_x[n] ** 2 - f_y[m] ** 2) < 1e-10)
             #print np.squeeze(res)
             k_idx[n, m] = np.squeeze(res)
-
-    if output:
-        print 'f2_grid:'
-        print f2_grid
-        print '======================================'
-        print 'f2_grid_unique:'
-        print f2_grid_unique
-        print '======================================'
-        print 'k_idx:'
-        print k_idx
 
     return k_idx
 #np.savez('k_unique_1024.npz', k_idx=k_idx)

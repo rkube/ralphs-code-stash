@@ -22,7 +22,7 @@ def binning_moments_sweep(probe_signal, tb_signal, probe_rho, tb_rho, rho_min, r
         rho_min:          float, minimum plunge depth
         rho_max:          float, maximum plunge depth
         delta_rho:        float, spatial bin size
-        interp:           booll, interpolate rho on fast signal timebase
+        interp:           bool, interpolate rho on fast signal timebase
 
     Output:
     =======
@@ -52,9 +52,11 @@ def binning_moments_sweep(probe_signal, tb_signal, probe_rho, tb_rho, rho_min, r
     nelem_arr = np.zeros_like(rho_bin_arr)
 
     hist_list = []
+    tidx_list = []
     # Compute statistics in the interval [rho:rho + delta]
     for rho_idx in np.arange(rho_bin_arr.size - 1):
         good_tidx = ((rho_fast > rho_bin_arr[rho_idx]) & (rho_fast < rho_bin_arr[rho_idx + 1]))
+        tidx_list.append(good_tidx)
 
         #if rho_idx is 0:
         print 'delta_rho = %e -> %d elements' % (delta_rho, good_tidx.sum())
@@ -73,7 +75,7 @@ def binning_moments_sweep(probe_signal, tb_signal, probe_rho, tb_rho, rho_min, r
     # rho <- rho + 0.5 * delta. This is now the mid-point of the interval we have
     # computed the statistics on
     rho_bin_arr = rho_bin_arr + 0.5 * delta_rho
-    return rho_bin_arr, mean_arr, rms_arr, skew_arr, flat_arr, nelem_arr, hist_list
+    return rho_bin_arr, mean_arr, rms_arr, skew_arr, flat_arr, nelem_arr, hist_list, tidx_list
 
 
 

@@ -9,9 +9,9 @@ from scipy.optimize import leastsq
 # Define the functors used in rho_curve_fitting
 class functor_gauss(object):
     """ 
-    Functor of a simple gaussian
+    Functor of a gaussian function
 
-    returns A * exp(-(x - x0)^2 / 2 sigma^2)
+    returns f(t) = A * exp(-(t - t0)^2 / 2 sigma^2)
     """
     def __init__(self, p):
         # p[0] = A
@@ -58,7 +58,7 @@ class functor_parabola(object):
     """
     Functor for a parabola
 
-    f(t) = A + B * (x - x0)^2
+    f(t) = A + B * (t - t0)^2
     """
 
     def __init__(self, p):
