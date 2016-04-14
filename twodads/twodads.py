@@ -457,6 +457,7 @@ class input2d_3:
         self.keys[update_key] = update_val
 
     def to_file(self, filename):
+        print '------called to_file()'
         with open(filename, 'w') as outfile:
             for k in self.keys.iterkeys():
                 if k in ['Lx', 'Ly', 'deltax', 'deltay']:
@@ -474,7 +475,7 @@ class input2d_3:
                     if k in ['output', 'diagnostics']:
                         line = '%s = %s' % (k,
                                             ' '.join(self.keys[k]))
-                    elif k in ['model_params', 'initial_conditions_theta'
+                    elif k in ['model_params', 'initial_conditions_theta',
                                'initial_conditions_omega', 'initial_conditions_tau']:
                         line = '%s = ' % (k)
                         for val in self.keys[k]:
@@ -509,7 +510,7 @@ class input2d_3:
         elif update_key in ['runnr', 'xleft', 'xright', 'ylow', 'yup', 'Nx', 'My',
                             'scheme', 'tlevs', 'deltat', 'tend', 'tdiag', 'tout',
                             'log_theta', 'do_particle_tracking', 'nprobes', 'theta_rhs',
-                            'omega_rhs', 'strmf_solver', 'init_function_theta',
+                            'omega_rhs', 'tau_rhs', 'strmf_solver', 'init_function_theta',
                             'init_function_tau', 'init_function_omega', 'nthreads']:
             try:
                 self.keys[update_key] = self.value_type[update_key](update_val)
