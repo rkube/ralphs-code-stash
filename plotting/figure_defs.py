@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /opt/local/bin/python
 # -*- Coding: UTF-8 -*-
 
 """
@@ -66,9 +66,9 @@ def set_rcparams_article_full(myParams):
     print 'Figure resolution: %d dpi' % fig_dpi
 
     myParams['font.family'] = 'sans-serif'
-    myParams['font.size'] = 12
+    myParams['font.size'] = 10
     myParams['axes.linewidth'] = 1
-    myParams['axes.labelsize'] = 12
+    # myParams['axes.labelsize'] = 12
     myParams['legend.fontsize'] = 8 
     myParams['lines.linewidth'] = 1
     myParams['lines.markersize'] = 3

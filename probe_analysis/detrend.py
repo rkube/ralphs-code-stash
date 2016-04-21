@@ -7,19 +7,20 @@ import matplotlib.pyplot as plt
 
 def detrend(timeseries, radius=16384, blocksize=128):
     """
-    Detrend a time series with fast CUDA routines
+    Detrend a time series with fast CUDA routines for moving average, moving rms
 
     1.) Compute moving average/RMS
-    2.) output = ( input - moving_average)/moving_rms
+    2.) detrended = ( input - moving_average)/moving_rms
 
     Input parameters:
-        timeseries: numpy ndarray
-        radius: Filter radius
-        blocksize: CUDA blocksize
+        timeseries: ndarray, input time series
+        radius:     int, Filter radius
+        blocksize:  int, CUDA blocksize
 
     Output:
-        detrended: detrended timeseries
-        cropped: number of items cropped at the end
+        detrended: ndarray, detrended timeseries
+        cropped:   int, number of items cropped at the end
+
     """
 
     # Assert that the time series is in float64 format
@@ -77,9 +78,11 @@ def detrend(timeseries, radius=16384, blocksize=128):
     indata_rms = np.zeros_like(ma_out)
     indata_rms[:] = timeseries[radius:len_ma_input - radius] - ma_out
     c_rms_in = ctypes.c_void_p(indata_rms.ctypes.data)
+    # Compute moving tms
     result_rms = ma_lib.rms_cuda(c_rms_in, c_rms_out, c_len_rms_output)
 
     detrended = (ts_cropped[2 * radius:-2 * radius] - ma_out[radius:-1 * radius]) / rms_out
 
-    return detrended, cropped
+    #return detrended, cropped
+    return detrended, cropped, ma_out, rms_out
  #End of file detrend.py

@@ -24,10 +24,10 @@ def float_exp_mant(f):
     """
 
     if (f < 0):
-        expon = np.ceil(np.log10(-f))
+        expon = np.floor(np.log10(-f))
     else:
-        expon = np.ceil(np.log10(f))
-    mant = f / 10 ** (expon - 1)
+        expon = np.floor(np.log10(f))
+    mant = f / 10 ** expon
     return expon, mant
 
 # End of file scientific_notation.py

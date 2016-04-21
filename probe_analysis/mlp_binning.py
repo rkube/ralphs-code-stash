@@ -8,6 +8,7 @@ from scipy.interpolate import interp1d
 from scipy.stats import skew, kurtosis
 
 
+
 def binning_moments_sweep(probe_signal, tb_signal, probe_rho, tb_rho, rho_min, rho_max, delta_rho, interp=True):
     """
     Compute statistical moments of probe_signal on intervals, where probe is in
@@ -37,7 +38,7 @@ def binning_moments_sweep(probe_signal, tb_signal, probe_rho, tb_rho, rho_min, r
     """
 
     rho_bin_arr = np.arange(rho_min, rho_max, delta_rho)
-    
+   
     # Interpolate rho on fast timebase
     if(interp):
         rho_ip_fast = interp1d(tb_rho, probe_rho)
@@ -58,25 +59,93 @@ def binning_moments_sweep(probe_signal, tb_signal, probe_rho, tb_rho, rho_min, r
         good_tidx = ((rho_fast > rho_bin_arr[rho_idx]) & (rho_fast < rho_bin_arr[rho_idx + 1]))
         tidx_list.append(good_tidx)
 
-        #if rho_idx is 0:
-        print 'delta_rho = %e -> %d elements' % (delta_rho, good_tidx.sum())
+        print '%4.2e-%4.2e -> %d elements' % (rho_bin_arr[rho_idx], rho_bin_arr[rho_idx + 1], good_tidx.sum())
+        try:
+            signal_cut = probe_signal[good_tidx]
+            mean_arr[rho_idx] = signal_cut.mean()
+            rms_arr[rho_idx] = signal_cut.std(ddof=1)
+            skew_arr[rho_idx] = skew(signal_cut)
+            flat_arr[rho_idx] = kurtosis(signal_cut)
+            nelem_arr[rho_idx] = good_tidx.sum()
 
-        signal_cut = probe_signal[good_tidx]
-        mean_arr[rho_idx] = signal_cut.mean()
-        rms_arr[rho_idx] = signal_cut.std(ddof=1)
-        skew_arr[rho_idx] = skew(signal_cut)
-        flat_arr[rho_idx] = kurtosis(signal_cut)
-        nelem_arr[rho_idx] = good_tidx.sum()
+            nbins = int(np.sqrt(good_tidx.sum()))
+            res = np.histogram(probe_signal[good_tidx], bins=nbins, density=True)
+            hist_list.append(res)
 
-        nbins = int(np.sqrt(good_tidx.sum()))
-        res = np.histogram(probe_signal[good_tidx], bins=nbins, density=True)
-        hist_list.append(res)
+        except ValueError:
+            mean_arr[rho_idx] = np.NaN
+            rms_arr[rho_idx] = np.NaN 
+            skew_arr[rho_idx] = np.NaN
+            flat_arr[rho_idx] = np.NaN
+            nelem_arr[rho_idx] = 0.0
+            hist_list.append(None)
+
 
     # rho <- rho + 0.5 * delta. This is now the mid-point of the interval we have
     # computed the statistics on
     rho_bin_arr = rho_bin_arr + 0.5 * delta_rho
     return rho_bin_arr, mean_arr, rms_arr, skew_arr, flat_arr, nelem_arr, hist_list, tidx_list
 
+
+def binning_moments_sweep_fixnelem(probe_signal, tb_signal, probe_rho, tb_rho, nelem=2e4, nbins=150):
+    """
+    Compute statistical moments of time series, sampled by a plunging probe on 
+    sub samples of the time series, on equal number of elements
+
+    Input:
+    ======
+        probe_signal:     ndarray, Timeseries to analyze (ne, Isat, Vp, Vf, Te)
+        tb_signal:        ndarray, Timebase of signal
+        probe_rho:        ndarray, Rho position of probe
+        tb_rho:           ndarray, Timebase of rho position
+        nelem:            integer, Number of points to use for each bin
+
+    Output:
+    =======
+        rho_bin_arr:    ndarray, average rho value of the interval on which statistics have been computed.
+        mean_arr:       ndarray, mean of time series, per nelem bin
+        rms_arr:        ndarray, rms of the time sereis where probe is ...
+        skew_arr:       ndarray, skewness...
+        flat_arr:       ndarray, flatness...
+        nelem_arr:      ndarray, number of elements in probe_signal 
+        hist_list:      ndarray, histogram and edges of probe_signal 
+    """
+
+    nbins = int(probe_signal.size / nelem)
+    rho_bin_arr = np.zeros(nbins, dtype='float')
+    mean_arr = np.zeros_like(rho_bin_arr)
+    rms_arr = np.zeros_like(rho_bin_arr)
+    skew_arr = np.zeros_like(rho_bin_arr)
+    flat_arr = np.zeros_like(rho_bin_arr)
+    nelem_arr = np.ones_like(rho_bin_arr) * nelem
+    hist_list = []
+    tidx_list = []
+
+    for bin_idx in np.arange(nbins):
+        signal_cut = probe_signal[bin_idx * nelem:(bin_idx + 1) * nelem] 
+        if (signal_cut.size < 1e2):
+            # Do not compute statistics with less than 100 elemnts
+            rho_bin_arr[bin_idx] = np.nan
+            mean_arr[bin_idx] = np.nan
+            rms_arr[bin_idx] = np.nan
+            skew_arr[bin_idx] = np.nan
+            flat_arr[bin_idx] = np.nan
+            hist_list.append([])
+            tidx_list.append([])
+
+        else:
+            rho_bin_arr[bin_idx] = probe_rho[bin_idx * nelem:(bin_idx + 1) * nelem].mean()
+            mean_arr[bin_idx] = signal_cut.mean()
+            rms_arr[bin_idx] = signal_cut.std(ddof=1)
+            skew_arr[bin_idx] = skew(signal_cut)
+            flat_arr[bin_idx] = kurtosis(signal_cut)
+
+            res = np.histogram(signal_cut, bins=nbins, density=True)
+            hist_list.append(res)
+
+            tidx_list.append(np.arange(bin_idx * nbins, (bin_idx + 1) * nbins, 1))
+
+    return rho_bin_arr, mean_arr, rms_arr, skew_arr, flat_arr, nelem_arr, hist_list, tidx_list
 
 
 def binning_hist_sweep(probe_signal, tb_signal, probe_rho, tb_rho, rho_min, rho_max, delta_rho, nbins, norm_ts=False):
