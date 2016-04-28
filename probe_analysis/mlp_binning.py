@@ -38,7 +38,6 @@ def binning_moments_sweep(probe_signal, tb_signal, probe_rho, tb_rho, rho_min, r
     """
 
     rho_bin_arr = np.arange(rho_min, rho_max, delta_rho)
-   
     # Interpolate rho on fast timebase
     if(interp):
         rho_ip_fast = interp1d(tb_rho, probe_rho)
@@ -50,7 +49,7 @@ def binning_moments_sweep(probe_signal, tb_signal, probe_rho, tb_rho, rho_min, r
     rms_arr = np.zeros_like(rho_bin_arr)
     skew_arr = np.zeros_like(rho_bin_arr)
     flat_arr = np.zeros_like(rho_bin_arr)
-    nelem_arr = np.zeros_like(rho_bin_arr)
+    nelem_arr = np.zeros_like(rho_bin_arr, dtype='int')
 
     hist_list = []
     tidx_list = []
@@ -58,26 +57,25 @@ def binning_moments_sweep(probe_signal, tb_signal, probe_rho, tb_rho, rho_min, r
     for rho_idx in np.arange(rho_bin_arr.size - 1):
         good_tidx = ((rho_fast > rho_bin_arr[rho_idx]) & (rho_fast < rho_bin_arr[rho_idx + 1]))
         tidx_list.append(good_tidx)
-
-        print '%4.2e-%4.2e -> %d elements' % (rho_bin_arr[rho_idx], rho_bin_arr[rho_idx + 1], good_tidx.sum())
-        try:
+        
+        if (good_tidx.sum() > 0):
             signal_cut = probe_signal[good_tidx]
             mean_arr[rho_idx] = signal_cut.mean()
             rms_arr[rho_idx] = signal_cut.std(ddof=1)
             skew_arr[rho_idx] = skew(signal_cut)
             flat_arr[rho_idx] = kurtosis(signal_cut)
-            nelem_arr[rho_idx] = good_tidx.sum()
+            nelem_arr[rho_idx] = int(good_tidx.sum())
 
             nbins = int(np.sqrt(good_tidx.sum()))
             res = np.histogram(probe_signal[good_tidx], bins=nbins, density=True)
             hist_list.append(res)
 
-        except ValueError:
+        else:
             mean_arr[rho_idx] = np.NaN
             rms_arr[rho_idx] = np.NaN 
             skew_arr[rho_idx] = np.NaN
             flat_arr[rho_idx] = np.NaN
-            nelem_arr[rho_idx] = 0.0
+            nelem_arr[rho_idx] = 0
             hist_list.append(None)
 
 

@@ -405,13 +405,13 @@ class input2d_3:
                 filename = join(simdir, 'input.ini')
             else:
                 filename = join(simdir, fname)
-            print 'Reading input.ini from %s' % (filename)
+            
             # Populate dictionary from input file
             with open(filename) as infile:
                 for line in infile.readlines():
                     # Convert  line from input file to correct data type
                     self.update_dict(self.keys, line)
-            print 'Done parsing input'
+            
         else:
             print 'simdir not set. Creating input with default values'
         # If simdir is not set, we have created a dictionary with default

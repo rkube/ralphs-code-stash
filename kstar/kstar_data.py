@@ -2,31 +2,34 @@
 #-*- Encoding: UTF-8 -*-
 
 """
-Probe timing for the KSTAR data we have
+Probe timing for the KSTAR data
 """
 
-shot_color_dict = {13084: 'b',
-                   13092: 'g',
-                   13093: 'r',
-                   13094: 'c',
-                   13095: 'm',
-                   13097: 'k'}
+# Use these colors for the shots
+shot_color_dict = {13084: 'k',
+                   13092: 'm',
+                   13093: 'c',
+                   13094: 'r',
+                   13095: 'b',
+                   13097: 'g'}
 
-shot_marker_dict = {13084: 'bv',
-                    13092: 'go',
-                    13093: 'rs',
-                    13094: 'cp',
-                    13095: 'mD',
-                    13097: 'k^'}
+# Use these shot markers for the papaer, as discussed on 2016-04-26. 
+# (low density) ‘kv', ‘mD', ‘bo', ‘gs', 'r^' (high density). Unused markers are assigned 'co'
+shot_marker_dict = {13084: ('kv', 'co'),
+                    13092: ('mD', 'co' ),
+                    13093: ('co', 'co' ),
+                    13094: ('co', 'r^' ),
+                    13095: ('bo', 'co'),
+                    13097: ('gs', 'co' )}
 
 
 # Time for inward probe plunges in full time series
-plunge_times_dict = {13084: ((3.7, 4.0), (6.7, 7.0)),
-                     13092: ((3.7, 4.0), (6.7, 7.0)),
-                     13093: ((3.7, 4.0), (6.7, 7.0)),
-                     13094: ((3.7, 4.0), (6.7, 7.0)),
-                     13095: ((3.7, 4.0), (6.7, 7.0)),
-                     13097: ((3.7, 4.0), (0.0, ))}
+plunge_times_dict = {13084: ((3.85, 4.0), (6.85, 7.0)),
+                     13092: ((3.85, 4.0), (6.85, 7.0)),
+                     13093: ((3.85, 4.0), (6.85, 7.0)),
+                     13094: ((3.85, 4.0), (6.85, 7.0)),
+                     13095: ((3.85, 4.0), (6.85, 7.0)),
+                     13097: ((3.85, 4.0), (0.0, ))}
 
 # Line-averaged density at mid point of probe plungeo
 neng_dict = {13084: (0.17, 0.20),
@@ -39,11 +42,16 @@ neng_dict = {13084: (0.17, 0.20),
 
 # Mask for single plunge time series for arcing etc.
 # Include dummy tuples because python somehow removes zero dimensions in iterations :/
-mask_times_dict = {13084: ((0.0, 0.0), (0.0, 0.0)),
-                   13092: ((3.99526, 3.99534), (0.0, 0.0)),
-                   13093: ((0.0, 0.0), (0.0, 0.0)),
-                   13094: ((3.98900, 3.98902), (3.99117, 3.99122)),
-                   13095: ((3.98754, 3.98763), (3.99195, 3.9925)),
-                   13097: ((3.97161, 3.97562), (0.0, 0.0))}
+mask_times_dict = {13084: ((0.0, 0.0), ),
+                   13092: ((3.99525, 3.99534), ),
+                   13093: ((6.9741, 6.97423), ),
+                   13094: ((3.989728, 3.98731), (3.98898, 3.98903), (3.99109, 3.99205), (3.99323, 3.9939)),
+                   13095: ((3.98754, 3.98763), (3.99194, 3.99215)),
+                   13097: ((3.97161, 3.97562), )}
+
+# Interval on which we compute profiledata 
+radial_variable_list = ['R', 'rsep']
+profile_R_min_max = (2.22, 2.3)
+profile_rrsep_min_max = (0.0225, 0.075)
 
 # End of file kstar_data.py

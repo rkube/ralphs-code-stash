@@ -20,8 +20,7 @@ class functor_gauss(object):
         self.p = p
         self.r_min = 0.0
         self.r_max = 1.0
-
-        print 'Created gaussian functor. A = %f, t0 = %f, sigma = %f' % (self.p[0], self.p[1], self.p[2])
+        #print 'Created gaussian functor. A = %f, t0 = %f, sigma = %f' % (self.p[0], self.p[1], self.p[2])
 
     def __call__(self, t):
         return self.p[0] * np.exp(-1.0 * ((t - self.p[1]) * (t - self.p[1])) / (2.0 * self.p[2] * self.p[2]))
@@ -68,7 +67,7 @@ class functor_parabola(object):
         self.p = p
         self.r_min = 0.0
         self.r_max = 1.0
-        print 'Created parabola functor. A = %f, t0 = %f, B = %f' % (self.p[0], self.p[1], self.p[2])
+        #print 'Created parabola functor. A = %f, t0 = %f, B = %f' % (self.p[0], self.p[1], self.p[2])
 
     def __call__(self, t):
         return self.p[0] + self.p[2] * (t - self.p[1]) * (t - self.p[1]) 
@@ -146,8 +145,6 @@ def rho_curve_fitting(probe_rho, probe_tb, t_start, t_end, mode='parabola'):
     
     # Set the range for which the functor is valid
     functor_rho.set_range(tb_fit)
-
-    print 'created functor for range %e - %e' % (functor_rho.get_min_rho(), functor_rho.get_max_rho())
 
     return functor_rho
 
