@@ -81,7 +81,7 @@ def binning_moments_sweep(probe_signal, tb_signal, probe_rho, tb_rho, rho_min, r
 
     # rho <- rho + 0.5 * delta. This is now the mid-point of the interval we have
     # computed the statistics on
-    rho_bin_arr = rho_bin_arr + 0.5 * delta_rho
+    rho_bin_arr = rho_bin_arr[:-1] + 0.5 * delta_rho
     return rho_bin_arr, mean_arr, rms_arr, skew_arr, flat_arr, nelem_arr, hist_list, tidx_list
 
 
@@ -143,6 +143,8 @@ def binning_moments_sweep_fixnelem(probe_signal, tb_signal, probe_rho, tb_rho, n
 
             tidx_list.append(np.arange(bin_idx * nbins, (bin_idx + 1) * nbins, 1))
 
+    # Make rho_bin_arr the mid points of the interval on which we compute the statistics
+    rho_bin_arr = rho_bin_arr[:-1] + 0.5 * delta_rho
     return rho_bin_arr, mean_arr, rms_arr, skew_arr, flat_arr, nelem_arr, hist_list, tidx_list
 
 

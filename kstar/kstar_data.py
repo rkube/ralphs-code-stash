@@ -15,12 +15,12 @@ shot_color_dict = {13084: 'k',
 
 # Use these shot markers for the papaer, as discussed on 2016-04-26. 
 # (low density) ‘kv', ‘mD', ‘bo', ‘gs', 'r^' (high density). Unused markers are assigned 'co'
-shot_marker_dict = {13084: ('kv', 'co'),
-                    13092: ('mD', 'co' ),
-                    13093: ('co', 'co' ),
-                    13094: ('co', 'r^' ),
-                    13095: ('bo', 'co'),
-                    13097: ('gs', 'co' )}
+shot_marker_dict = {13084: ('kv', 'kp'),
+                    13092: ('mD', 'mp' ),
+                    13093: ('co', 'cp' ),
+                    13094: ('rs', 'r^' ),
+                    13095: ('bo', 'bp'),
+                    13097: ('gs', 'gp' )}
 
 
 # Time for inward probe plunges in full time series

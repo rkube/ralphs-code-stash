@@ -11,7 +11,7 @@ import matplotlib as mpl
 # Figure size with 300dpi
 fig_dpi = 300.
 fig_ipp = 1. / 72.72
-golden_ratio = 0.5*(1+sqrt(5))
+golden_ratio = 0.5 * (1. + sqrt(5.0))
 
 
 def set_mplrcparams(rcparams):
@@ -107,6 +107,61 @@ def set_rcparams_article_full_macos(myParams):
 
     return fig_width, fig_height
 
+def set_rcparams_paper(myParams):
+    """
+    One 8cm column for the TCV paper
+    """
+    fig_width = 227 # in points
+    fig_height = fig_width / golden_ratio
+    fig_width_in = fig_width / 72.72
+    fig_height_in = fig_height / 72.72
+    #print 'Figure size: %d x %d' % (fig_width, fig_height)
+    #print 'Figure resolution: %d dpi' % fig_dpi
+
+    myParams['font.family'] = 'Time'
+    myParams['font.size'] = 6
+    myParams['axes.linewidth'] = 0.5
+    myParams['axes.labelsize'] = 6
+    myParams['legend.fontsize'] = 6
+    myParams['legend.handlelength'] = 4
+    myParams['lines.markersize'] = 2
+    myParams['lines.linewidth'] = 0.5
+    myParams['figure.dpi'] = 300
+    myParams['figure.figsize'] = [fig_width_in, fig_height_in]
+    myParams['text.usetex'] = True
+    myParams['savefig.dpi'] = 300
+    myParams['pdf.fonttype'] = 42
+    myParams['patch.linewidth'] = 0.5 #For legend box borders
+
+    return fig_width, fig_height
+
+def set_rcparams_paper_thickline(myParams):
+    """
+    One 8cm column for the TCV paper
+    """
+    fig_width = 227 # in points
+    fig_height = fig_width / golden_ratio
+    fig_width_in = fig_width / 72.72
+    fig_height_in = fig_height / 72.72
+    #print 'Figure size: %d x %d' % (fig_width, fig_height)
+    #print 'Figure resolution: %d dpi' % fig_dpi
+
+    myParams['font.family'] = 'Time'
+    myParams['font.size'] = 8
+    myParams['axes.linewidth'] = 0.5
+    myParams['axes.labelsize'] = 8
+    myParams['legend.fontsize'] = 8
+    myParams['legend.handlelength'] = 3
+    myParams['lines.markersize'] = 2
+    myParams['lines.linewidth'] = 1.5
+    myParams['figure.dpi'] = 300
+    myParams['figure.figsize'] = [fig_width_in, fig_height_in]
+    myParams['text.usetex'] = True
+    myParams['savefig.dpi'] = 300
+    myParams['pdf.fonttype'] = 42
+    myParams['patch.linewidth'] = 0.5 #For legend box borders
+
+    return fig_width, fig_height
 
 def set_rcparams_article_fullsq(myParams):
     """
