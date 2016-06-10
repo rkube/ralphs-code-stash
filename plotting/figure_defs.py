@@ -190,23 +190,25 @@ def set_rcparams_article_fullsq(myParams):
 
     return fig_width, fig_height
 
-
 def set_rcparams_article_half(myParams):
     """
-    Half column width figures for revtex
+    Half column width figures for revtex, s
+    http://publishing.aip.org/authors/preparing-graphics
     """
-    fig_width = 123.0 # in points
-    fig_height = fig_width / golden_ratio
-    fig_width_in = fig_width / 72.72
-    fig_height_in = fig_height / 72.72
-    print 'Figure size: %d x %d' % (fig_width, fig_height)
+    # Figure size in inch
+    fig_width_in = 3.37
+    fig_height_in = fig_width_in / golden_ratio
+    # figure size in pts
+    fig_width_pt = fig_width_in * fig_dpi 
+    fig_height_pt = fig_height_in * fig_dpi 
+    print 'Figure size: %4.2f"" x %4.2f""' % (fig_width_in, fig_height_in)
     print 'Figure resolution: %d dpi' % fig_dpi
 
     myParams['font.family'] = 'sans-serif'
     myParams['font.size'] = 6
     myParams['axes.linewidth'] = 0.5
     myParams['axes.labelsize'] = 6
-    myParams['legend.fontsize'] = 6 
+    myParams['legend.fontsize'] = 4 
     myParams['lines.markersize'] = 2
     myParams['lines.linewidth'] = 0.5
     myParams['figure.dpi'] = 300
@@ -215,7 +217,7 @@ def set_rcparams_article_half(myParams):
     myParams['savefig.dpi'] = 300
     myParams['pdf.fonttype'] = 42
 
-    return fig_width, fig_height
+    return fig_width_in, fig_height_in
 
 
 def set_rcparams_beamer(myParams):
