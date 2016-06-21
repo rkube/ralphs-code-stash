@@ -22,8 +22,11 @@ var_str_dict = {'ne': r"n_\mathrm{e}",
                 'Vp': r"V_\mathrm{p}",
                 'Vf': r"V_\mathrm{f}",
                 'Vrad': r"V_\mathrm{rad}",
-                'Gamma_n': r"\Gamma_n",                                                                                                                                                                                                                                   
+                'Gamma_n': r"\Gamma_n",
                 'Gamma_T': r"\Gamma_T"}
+
+
+
 
 def mlp_get_signal(varname, pin, shotnr, t_start, t_end, datadir=mlp_data_dir,
         pot_var='Vp', vr_mode='average',
@@ -33,7 +36,7 @@ def mlp_get_signal(varname, pin, shotnr, t_start, t_end, datadir=mlp_data_dir,
 
         Arguments:
         ===========
-        varname.....string, gives the signal to return: 
+        varname.....string, gives the signal to return:
                                 ne: Particle density in 10^20 m^-3
                                 Te: Electron temperature in eV
                                 Vp: Plasma potential in Volt
@@ -95,7 +98,7 @@ def mlp_get_signal(varname, pin, shotnr, t_start, t_end, datadir=mlp_data_dir,
             ##################################################################################
             # Compute Vrad as aerage over both poloidally separated pairs:
             # Vrad = (Vf(SE, pin1) - Vf(NE, pin0) + Vf(SW, pin2) - Vf(NW, pin3)) / 2.0
-          
+
             # voltage is set by vr_pot
             tb_NE = df['tb_%s_p0' % pot_var]
             ts_NE = df['%s_p0' % pot_var]
@@ -156,7 +159,7 @@ def mlp_get_signal(varname, pin, shotnr, t_start, t_end, datadir=mlp_data_dir,
                 # Load and average particle density time series of all four pins
                 ts_list = []
                 for pin_idx in [0, 1, 2, 3]:
-                    tb_f = df['tb_%s_p%1d' % (flux_var, pin_idx)] 
+                    tb_f = df['tb_%s_p%1d' % (flux_var, pin_idx)]
                     ts = df['%s_p%1d' % (flux_var, pin_idx)] * 1e-20
 
                     good_tidx = ((tb_f > t_start) & (tb_f < t_end))
@@ -176,14 +179,14 @@ def mlp_get_signal(varname, pin, shotnr, t_start, t_end, datadir=mlp_data_dir,
                     # Load and average particle density time series of all four pins
                     ts_Te_list = []
                     for pin_idx in [0, 1, 2, 3]:
-                        tb_T = df['tb_ne_p%1d' % pin_idx] 
-                        ts = df['Te_p%1d' % pin_idx] 
+                        tb_T = df['tb_ne_p%1d' % pin_idx]
+                        ts = df['Te_p%1d' % pin_idx]
 
                         good_tidx = ((tb_T > t_start) & (tb_T < t_end))
                         assert((tb_T[good_tidx] == tb).all())
                         ts = ts[good_tidx]
                         ts_Te_list.append(ts)
-                        
+
                         # Check if we cropped to the same time base as Vrad
                         assert(ts.size == Vrad.size)
 
