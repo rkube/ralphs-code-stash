@@ -134,6 +134,7 @@ def rho_curve_fitting(probe_rho, probe_tb, t_start, t_end, mode='parabola'):
     rho_fit = probe_rho[good_tidx]
     tb_fit = probe_tb[good_tidx]
 
+    print good_tidx.sum()
     # Initial fit parameters
     p0 = [rho_fit.min(), t_start + 0.5 * (t_end - t_start), 0.15]
     p_recip, success_recip = leastsq(err_func, p0, args=(rho_fit, tb_fit), maxfev=1000)

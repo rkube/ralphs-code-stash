@@ -25,47 +25,44 @@ var_str_dict = {'ne': r"n_\mathrm{e}",
                 'Gamma_n': r"\Gamma_n",
                 'Gamma_T': r"\Gamma_T"}
 
-
-
+pin_name_dict = {0: 'NE', 1: 'SE', 2: 'SW', 3: 'NW'}
 
 def mlp_get_signal(varname, pin, shotnr, t_start, t_end, datadir=mlp_data_dir,
-        pot_var='Vp', vr_mode='average',
-        flux_var = 'ne'):
+        pot_var='Vp', vr_mode='average', flux_var = 'ne'):
     """
-        Construct signal from MLP datafile
+    Construct signal from MLP datafile
 
-        Arguments:
-        ===========
-        varname.....string, gives the signal to return:
-                                ne: Particle density in 10^20 m^-3
-                                Te: Electron temperature in eV
-                                Vp: Plasma potential in Volt
-                                Vf: Floating potential in Volt
-                                Vrad: Radial velocity in ms^-1, as computed by Vplasma
-                                Gamma_n: Radial particle flux in 10^20 m^-2 s^-1
-                                Gamma_T: Radial heat flux in 10^20 m^-2 s^-1 eV
-        pin.........int, pin from which we gather the signal. 0: Ne, 1: SE, 2: SW, 3: NW. Only
-                         valid for ne, Te, Vp, Vf.
-        shotnr......int, shot number
-        t_start.....double, start time for signal
-        t_end.......double, end time for signal
-        datadir.....string, Directory with data files
-        pot_var......string, The potential signal to compute the radial velocity from
-                             "Vp": Use the plasma potential
-                             "Vf": Use the floating potential
-        vr_mode.....string, Which pin groups to use to compute the radial velocity
-                            east: Vrad = (V^{SE} - V^{NE}) / B delta_z
-                            west: Vrad = (V^{SW} - V^{NW}) / B delta_z
-                            average: Vrad = 0.5 * (V^{SE} + V^{SW} - V^{NE} - V^{NW}) / B delta_z
-        flux_var = string, Use either Isat or ne to compute the radial flux
-                           "Is": Use ion saturation current signal
-                           "ne": Use electron density signal
+    Arguments:
+    ===========
+    varname.....string, gives the signal to return:
+                            ne: Particle density in 10^20 m^-3
+                            Te: Electron temperature in eV
+                            Vp: Plasma potential in Volt
+                            Vf: Floating potential in Volt
+                            Vrad: Radial velocity in ms^-1, as computed by Vplasma
+                            Gamma_n: Radial particle flux in 10^20 m^-2 s^-1
+                            Gamma_T: Radial heat flux in 10^20 m^-2 s^-1 eV
+    pin.........int, pin from which we gather the signal. 0: Ne, 1: SE, 2: SW, 3: NW. Only
+                     valid for ne, Te, Vp, Vf.
+    shotnr......int, shot number
+    t_start.....double, start time for signal
+    t_end.......double, end time for signal
+    datadir.....string, Directory with data files
+    pot_var......string, The potential signal to compute the radial velocity from
+                         "Vp": Use the plasma potential
+                         "Vf": Use the floating potential
+    vr_mode.....string, Which pin groups to use to compute the radial velocity
+                        east: Vrad = (V^{SE} - V^{NE}) / B delta_z
+                        west: Vrad = (V^{SW} - V^{NW}) / B delta_z
+                        average: Vrad = 0.5 * (V^{SE} + V^{SW} - V^{NE} - V^{NW}) / B delta_z
+    flux_var = string, Use either Isat or ne to compute the radial flux
+                       "Is": Use ion saturation current signal
+                       "ne": Use electron density signal
 
-        Returns:
-        ========
-        tb........ndarray, float: Timebase for the waveform
-        ts........ndarray, float: Signal of the waveform
-
+    Returns:
+    ========
+    tb........ndarray, float: Timebase for the waveform
+    ts........ndarray, float: Signal of the waveform
     """
     assert varname in mlp_var_list
     assert pot_var in ['Vp', 'Vf']
@@ -194,7 +191,4 @@ def mlp_get_signal(varname, pin, shotnr, t_start, t_end, datadir=mlp_data_dir,
                     ts = avg_n * avg_Te * Vrad
 
     return tb, ts
-
-
-
 # End of file mlp_get_signal.py

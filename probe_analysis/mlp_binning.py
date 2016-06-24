@@ -45,11 +45,12 @@ def binning_moments_sweep(probe_signal, tb_signal, probe_rho, tb_rho, rho_min, r
     else:
         rho_fast = probe_rho
 
-    mean_arr = np.zeros_like(rho_bin_arr)
-    rms_arr = np.zeros_like(rho_bin_arr)
-    skew_arr = np.zeros_like(rho_bin_arr)
-    flat_arr = np.zeros_like(rho_bin_arr)
-    nelem_arr = np.zeros_like(rho_bin_arr, dtype='int')
+    nelem_profiles = rho_bin_arr.shape[0] - 1
+    mean_arr = np.zeros(nelem_profiles, dtype='float64')
+    rms_arr = np.zeros(nelem_profiles, dtype='float64')
+    skew_arr = np.zeros(nelem_profiles, dtype='float64')
+    flat_arr = np.zeros(nelem_profiles, dtype='float64')
+    nelem_arr = np.zeros(nelem_profiles, dtype='int')
 
     hist_list = []
     tidx_list = []
@@ -78,10 +79,10 @@ def binning_moments_sweep(probe_signal, tb_signal, probe_rho, tb_rho, rho_min, r
             nelem_arr[rho_idx] = 0
             hist_list.append(None)
 
-
     # rho <- rho + 0.5 * delta. This is now the mid-point of the interval we have
     # computed the statistics on
     rho_bin_arr = rho_bin_arr[:-1] + 0.5 * delta_rho
+    print rho_bin_arr.size, mean_arr.size
     return rho_bin_arr, mean_arr, rms_arr, skew_arr, flat_arr, nelem_arr, hist_list, tidx_list
 
 
