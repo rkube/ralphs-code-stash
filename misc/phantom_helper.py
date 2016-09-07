@@ -136,6 +136,7 @@ def find_sol_pixels(s):
     """
     Returns the indices of the pixels in between the separatrix and the LCFS.
 
+    Input:
     s:    Processed separatrix data from IDL
           i.e. s = readsav('%s/separatrix.sav' % (datadir), verbose=False)
           see /usr/local/cmod/codes/efit/idl/efit_rz2rmid.pro
@@ -162,8 +163,6 @@ def find_sol_mask(shotnr, frame_info=None, rz_array=None,
 
     return ((s['rmid'].reshape(64, 64) > s['rmid_sepx']) &
             (s['rmid'].reshape(64, 64) < s['rmid_lim']))
-
-
 
 
 # End of file phantom_helper.py

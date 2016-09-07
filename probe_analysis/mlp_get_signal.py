@@ -93,10 +93,10 @@ def mlp_get_signal(varname, pin, shotnr, t_start, t_end, datadir=mlp_data_dir,
             # Combine appropriate data signals as to generate the signal
             # All of these need the estimated radial velocity.
             ##################################################################################
-            # Compute Vrad as aerage over both poloidally separated pairs:
+            # Compute Vrad as average over both poloidally separated pairs:
             # Vrad = (Vf(SE, pin1) - Vf(NE, pin0) + Vf(SW, pin2) - Vf(NW, pin3)) / 2.0
 
-            # voltage is set by vr_pot
+            # Which voltage to use is set by vr_pot
             tb_NE = df['tb_%s_p0' % pot_var]
             ts_NE = df['%s_p0' % pot_var]
 
@@ -105,7 +105,7 @@ def mlp_get_signal(varname, pin, shotnr, t_start, t_end, datadir=mlp_data_dir,
             ts_NE = ts_NE[good_tidx]
             #ts_1 = ts_1 - ts_1.mean()
 
-            tb_SE= df['tb_%s_p1' % pot_var]
+            tb_SE = df['tb_%s_p1' % pot_var]
             ts_SE = df['%s_p1' % pot_var]
 
             good_tidx = ((tb_SE > t_start) & (tb_SE < t_end))
@@ -146,7 +146,7 @@ def mlp_get_signal(varname, pin, shotnr, t_start, t_end, datadir=mlp_data_dir,
             elif vr_mode is 'west':
                 Vrad = (ts_SW - ts_NW) * invBdz
             elif vr_mode is 'average':
-                Vrad = 0.5 * ((ts_SE - ts_NE) + (ts_SW - ts_NW))* invBdz
+                Vrad = 0.5 * ((ts_SE - ts_NE) + (ts_SW - ts_NW)) * invBdz
 
             if varname is 'Vrad':
                 ts = Vrad
@@ -191,4 +191,59 @@ def mlp_get_signal(varname, pin, shotnr, t_start, t_end, datadir=mlp_data_dir,
                     ts = avg_n * avg_Te * Vrad
 
     return tb, ts
+
+
+def mlp_jdiv_get_signal(varname, electrode, shotnr, t_start, t_end, datadir=mlp_data_dir):
+    """
+    Construct signal from JDIV MLP datafiles.
+    Stored locally by using cmodws73:misc_scripts/save_iv_jdiv_mlp.py
+
+    Arguments:
+    ==========
+    varname.......string. Gives the signal to return:
+                          ne: Particle density in 10^20m^-3
+                          Te: Electron temperature
+                          Vp: Plasma potential
+                          Vf: Floating potential
+    electrode.....int The electrode to read out. 0...7
+    shotnr........int, shot number
+    t_start.......float, start time for signal
+    t_end.........float, end time for signal
+    datadir.......string, Directory where data files are stored
+
+
+    Returns:
+    ========
+    tb............ndarray, float. Timebase of the signal waveform
+    ts............ndarray, float. The data time series sampled by the MLP
+    """
+
+    assert varname in mlp_var_list
+    if varname in ["Vrad", "Gamma_n", "Gamma_T"]:
+        print "Cannot compute %s from JDIV data" % (varname)
+        return 0.0, 0.0
+
+
+    df_fname = "%s/%10d/JDIV/MLP/%10d_JDIV_MLP_P%1d.npz" % (datadir, shotnr, shotnr, electrode)
+
+    with np.load(df_fname) as df:
+        varname_ts = "%s_fit" % (varname)
+        varname_tb = "tb_%s_fit" % (varname)
+
+        tb = df[varname_tb]
+        ts = df[varname_ts]
+        
+        if varname is "ne":
+            ts * ts * 1e-20
+
+
+        good_tidx = ((tb > t_start) & (tb < t_end))
+        tb = tb[good_tidx]
+        ts = ts[good_tidx]
+
+        df.close()
+
+    return tb, ts
+
+
 # End of file mlp_get_signal.py
