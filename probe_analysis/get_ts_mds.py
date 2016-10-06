@@ -105,97 +105,102 @@ def get_signal_asp_mlp(varname, pin, shotnr, t_start, t_end,
     tb......ndarray, float: Timebase
     ts......ndarray, float: Signal
     """
+    raise Warning("Please use get_signal_asp_mlp from uit_library.cmod.get_ts_mds")
 
-    tree_edge = mds.Tree('edge', shotnr)
-    node = tree_edge.getNode('\EDGE::TOP.PROBES.ASP.MLP.P%1d:%s' %
-                             (pin, variables_dict_mlp[varname]))
+    #tree_edge = mds.Tree('edge', shotnr)
+    #node = tree_edge.getNode('\EDGE::TOP.PROBES.ASP.MLP.P%1d:%s' %
+    #                         (pin, variables_dict_mlp[varname]))
 
-    ts = node.data().astype('float64').flatten()
+    #ts = node.data().astype('float64').flatten()
 
-    if varname is 'ne':
-        ts = ts * 1e-20
+    #if varname is 'ne':
+    #    ts = ts * 1e-20
 
-    tb = node.dim_of().data().flatten()
-    good_tidx = ((tb > t_start) & (tb < t_end))
+    #tb = node.dim_of().data().flatten()
+    #good_tidx = ((tb > t_start) & (tb < t_end))
 
     return tb[good_tidx], ts[good_tidx]
 
 
 def get_signal_jdiv_mlp(varname, pin, shotnr, t_start, t_end):
-    tree_edge = mds.Tree('edge', shotnr)
+    raise Warning("Please use get_signal_jdiv_mlp from uit_library.cmod.get_ts_mds")
+    #tree_edge = mds.Tree('edge', shotnr)
 
-    # Map pins to letters
-    jdiv_map_dict = {1: 'A',
-                     3: 'B',
-                     5: 'C',
-                     6: 'D',
-                     7: 'E'}
+    ## Map pins to letters
+    #jdiv_map_dict = {1: 'A',
+    #                 3: 'B',
+    #                 5: 'C',
+    #                 6: 'D',
+    #                 7: 'E'}
 
-    # We swapped cards A and B after run 015 becuase MLP on strike point looks
-    # funky
-    if(shotnr > 1160616015):
-        jdiv_map_dict[1] = 'B'
-        jdiv_map_dict[2] = 'A'
-    # We swapped cards C and E after run 016 because data on card C looks funky
-    if(shotnr > 1160616016):
-        print 'switched config!'
-        jdiv_map_dict[7] = 'C'
-        jdiv_map_dict[5] = 'E'
+    ## We swapped cards A and B after run 015 becuase MLP on strike point looks
+    ## funky
+    #if(shotnr > 1160616015):
+    #    jdiv_map_dict[1] = 'B'
+    #    jdiv_map_dict[2] = 'A'
+    ## We swapped cards C and E after run 016 because data on card C looks funky
+    #if(shotnr > 1160616016):
+    #    print 'switched config!'
+    #    jdiv_map_dict[7] = 'C'
+    #    jdiv_map_dict[5] = 'E'
 
-    letter = jdiv_map_dict[pin]
+    #letter = jdiv_map_dict[pin]
 
-    node_name = '\EDGE::TOP.PROBES.JDIV_MLP.G%s.P0:%s' %\
-                (letter, variables_dict_mlp[varname])
-    print node_name
-    node = tree_edge.getNode(node_name)
+    #node_name = '\EDGE::TOP.PROBES.JDIV_MLP.G%s.P0:%s' %\
+    #            (letter, variables_dict_mlp[varname])
+    #print node_name
+    #node = tree_edge.getNode(node_name)
 
-    ts = node.data().astype('float64').flatten()
+    #ts = node.data().astype('float64').flatten()
 
-    if varname is 'ne':
-        ts = ts * 1e-20
+    #if varname is 'ne':
+    #    ts = ts * 1e-20
 
-    tb = node.dim_of().data().flatten()
-    good_tidx = ((tb > t_start) & (tb < t_end))
+    #tb = node.dim_of().data().flatten()
+    #good_tidx = ((tb > t_start) & (tb < t_end))
 
-    return tb[good_tidx], ts[good_tidx]
+    #return tb[good_tidx], ts[good_tidx]
 
 
 def get_signal_jdiv(varname, pin, shotnr, t_start, t_end):
-    tree_edge = mds.Tree('edge', shotnr)
-    node_name = '\EDGE::TOP.PROBES.JDIV.G%02d.P0:%s' %\
-                (pin, variables_dict_slow[varname])
-    print node_name
-    node = tree_edge.getNode(node_name)
+    raise Warning("Please use get_signal_jdiv from uit_library.cmod.get_ts_mds")
+    #tree_edge = mds.Tree('edge', shotnr)
+    #node_name = '\EDGE::TOP.PROBES.JDIV.G%02d.P0:%s' %\
+    #            (pin, variables_dict_slow[varname])
+    #print node_name
+    #node = tree_edge.getNode(node_name)
 
-    ts = node.data().astype('float64').flatten()
-    tb = node.dim_of().data().flatten()
-    good_tidx = ((tb > t_start) & (tb < t_end))
+    #ts = node.data().astype('float64').flatten()
+    #tb = node.dim_of().data().flatten()
+    #good_tidx = ((tb > t_start) & (tb < t_end))
 
-    return tb[good_tidx], ts[good_tidx]
+    #return tb[good_tidx], ts[good_tidx]
 
 
 def get_signal_fsp(varname, pin, shotnr, t_start, t_end):
-    tree_edge = mds.Tree('edge', shotnr)
-    node = tree_edge.getNode('\EDGE::TOP.PROBES.FSP.G_1.P%1d:%s' %
-                             (pin, variables_dict_fast[varname]))
+    raise Warning("Please use get_signal_fsp from uit_library.cmod.get_ts_mds")
+    #tree_edge = mds.Tree('edge', shotnr)
+    #node = tree_edge.getNode('\EDGE::TOP.PROBES.FSP.G_1.P%1d:%s' %
+    #                         (pin, variables_dict_fast[varname]))
 
-    ts = node.data().astype('float64').flatten()
-    tb = node.dim_of().data().flatten()
-    good_tidx = ((tb > t_start) & (tb < t_end))
+    #ts = node.data().astype('float64').flatten()
+    #tb = node.dim_of().data().flatten()
+    #good_tidx = ((tb > t_start) & (tb < t_end))
 
-    return tb[good_tidx], ts[good_tidx]
+    #return tb[good_tidx], ts[good_tidx]
 
 
 def get_signal_rail(varname, pin, shotnr, t_start, t_end):
-    tree_edge = mds.Tree('edge', shotnr)
-    node = tree_edge.getNode('\EDGE::TOP.PROBES.RAIL.TILE%1d.P0:%s' %
-                             (pin, variables_dict_fast[varname]))
+    raise Warning("Please use get_signal_rail from uit_library.cmod.get_ts_mds")
+    #tree_edge = mds.Tree('edge', shotnr)
+    #node = tree_edge.getNode('\EDGE::TOP.PROBES.RAIL.TILE%1d.P0:%s' %
+    #                         (pin, variables_dict_fast[varname]))
 
-    ts = node.data().astype('float64').flatten()
-    tb = node.dim_of().data().flatten()
-    good_tidx = ((tb > t_start) & (tb < t_end))
+    #ts = node.data().astype('float64').flatten()
+    #tb = node.dim_of().data().flatten()
+    #good_tidx = ((tb > t_start) & (tb < t_end))
 
-    return tb[good_tidx], ts[good_tidx]
+    #return tb[good_tidx], ts[good_tidx]
 
 
 
