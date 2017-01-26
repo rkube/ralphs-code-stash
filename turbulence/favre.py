@@ -1,6 +1,8 @@
 #!/opt/local/bin/python
 #-*- Encoding: UTF-8 -*-
 
+import numpy as np
+
 def favg(field, density, dy):
     """
     Computes the Favre average of a field f.
