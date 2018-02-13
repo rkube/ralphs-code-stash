@@ -86,7 +86,7 @@ def detrend(timeseries, radius=16384, blocksize=128):
     return detrended, cropped, ma_out, rms_out
 
 
-def detrend_omp(timeseries, radius=16384):
+def detrend_omp(timeseries, radius=16384, module_dir="/home/rkube/source/running_ma"):
     """
     Detrend a time series using openmp moving average and moving rms:
 
@@ -101,19 +101,20 @@ def detrend_omp(timeseries, radius=16384):
 
     Output:
     =======
-        norm: ndarray, normalized time series    
+        norm: ndarray, normalized time series
     """
 
     # Assert that the time series is float64
     assert(timeseries.dtype == np.core.numerictypes.float64)
 
     # Load the moving stat library
-    ma_lib = ctypes.cdll.LoadLibrary("/Users/ralph/source/running_ma/module_moving_stat.so")
+    #ma_lib = ctypes.cdll.LoadLibrary("/Users/ralph/source/running_ma/module_moving_stat.so")
+    ma_lib = ctypes.cdll.LoadLibrary("%s/module_moving_stat.so" % module_dir)
 
     numel = timeseries.size
-    norm_out = np.zeros(numel, dtype='float64')
-    moving_avg = np.zeros(numel, dtype="float64")
-    moving_rms = np.zeros(numel, dtype="float64")
+    norm_out = np.ones(numel, dtype='float64')
+    moving_avg = np.ones(numel, dtype="float64")
+    moving_rms = np.ones(numel, dtype="float64")
 
     # Convert to ctypes
     c_numel = ctypes.c_size_t(numel)
@@ -128,10 +129,44 @@ def detrend_omp(timeseries, radius=16384):
     # Moving rms
     c_moving_rms_out_ptr = ctypes.c_void_p(moving_rms.ctypes.data)
 
-    ma_lib.running_norm_omp(c_norm_in_ptr, c_norm_out_ptr, 
-                            c_moving_avg_out_ptr, 
+    ma_lib.running_norm_omp(c_norm_in_ptr, c_norm_out_ptr,
+                            c_moving_avg_out_ptr,
                             c_moving_rms_out_ptr, c_radius, c_numel)
 
     return norm_out, moving_avg, moving_rms
+
+
+def running_avg(timeseries, radius=16384, module_dir="/home/rkube/source/running_ma"):
+    """
+    Compute the moving average of a time series using the openmp module
+
+
+    Input:
+    ======
+         timeeseries: ndarray(float64): input time series
+         radius: int, Radius for moving average filter
+
+    Output:
+    ======
+        mavg: ndarray, moving average
+    """
+
+    assert(timeseries.dtype == np.core.numerictypes.float64)
+
+    ma_lib = ctypes.cdll.LoadLibrary("%s/module_moving_stat.so" % module_dir)
+
+    numel = timeseries.shape[0]
+    moving_avg = np.zeros(numel, dtype='float64')
+    
+    # convert to ctypes
+    c_numel = ctypes.c_size_t(numel)
+    c_radius = ctypes.c_size_t(radius)
+
+    c_ma_in_ptr = ctypes.c_void_p(timeseries.ctypes.data)
+    c_ma_out_ptr = ctypes.c_void_p(moving_avg.ctypes.data)
+
+    ma_lib.moving_average_omp(c_ma_in_ptr, c_ma_out_ptr, c_radius, c_numel)
+
+    return moving_avg
 
 #End of file detrend.py

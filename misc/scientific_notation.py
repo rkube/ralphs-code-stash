@@ -30,4 +30,28 @@ def float_exp_mant(f):
     mant = f / 10 ** expon
     return expon, mant
 
+
+def formatter_sd(f, n):
+    """
+    Returns a float of the number formatted to significant digits
+
+    Input:
+    ======
+    f...... float, number to format
+    n...... int, number of significant digits
+
+    Output:
+    =======
+    fstr... string, formatted string
+    """
+
+    assert(n > 1)
+
+    exp, mant = float_exp_mant(f)
+
+    mant_r = np.around(mant, n - 1)
+
+    fstr = "{0:g}".format(mant_r * 10**exp)
+    return(fstr)
+
 # End of file scientific_notation.py

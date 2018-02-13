@@ -43,21 +43,23 @@ In that runday the probes were in the following configuration:
     1160616026
 """
 
-# Node names for ASP MLP data, used by get_signal_asp_mlp
+# Node names for ASP MLP data, used by get_signal_asp_mlp and
+# get_signal_jdiv_mlp
 variables_dict_mlp = {'ne': 'DENSITY_FIT',
                       'Is': 'ISAT_FIT',
                       'Js': 'JSAT_FIT',
                       'Vp': 'PHI_FIT',
                       'Te': 'TE_FIT',
-                      'Vf': 'VF_FIT'}
+                      'Vf': 'VF_FIT',
+                      'rho': 'RHO'}
 
 # Node names to read for JDIV mlp data. Used by get_signal_jdiv_mlp
-variables_dict_mlp_jdiv = {'ne': 'ne_fast',
-                           'Is': 'ISAT_FAST',
-                           'Js': 'JSAT_FAST',
-                           'Vp': 'PHI_FAST',
-                           'Te': 'TE_FAST',
-                           'Vf': 'VF_FAST'}
+#variables_dict_mlp_jdiv = {'ne': 'ne_fast',
+#                           'Is': 'ISAT_FAST',
+#                           'Js': 'JSAT_FAST',
+#                           'Vp': 'PHI_FAST',
+#                           'Te': 'TE_FAST',
+#                           'Vf': 'VF_FAST'}
 
 # Node names for slow sampling. Used by get_signal_rail
 variables_dict_slow = {'Is': 'I_SLOW',
